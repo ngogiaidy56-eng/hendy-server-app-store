@@ -157,6 +157,8 @@ app.post("/api/admin/uploads",express.raw({type:"application/octet-stream",limit
 app.use(express.static(path.join(root,"dist"),{index:false,maxAge:"1h",fallthrough:true}));
 app.get("/",(_req,res,next)=>res.sendFile(path.join(root,"dist","index.html"),e=>{if(e)next(e);}));
 app.get(["/admin","/admin/"],(_req,res,next)=>res.sendFile(path.join(root,"dist","admin.html"),e=>{if(e)next(e);}));
+app.get(["/control-plane","/control-plane/"],(_req,res,next)=>res.sendFile(path.join(root,"dist","control-plane","index.html"),e=>{if(e)next(e);}));
+app.get(["/studio","/studio/"],(_req,res,next)=>res.sendFile(path.join(root,"dist","studio","index.html"),e=>{if(e)next(e);}));
 app.use((req,res,next)=>{if(req.method!=="GET"&&req.method!=="HEAD")return res.status(404).json({error:"Route not found."});if(req.path==="/api"||req.path.startsWith("/api/"))return res.status(404).json({error:"API route not found."});if(req.path==="/control-plane")return res.redirect(301,"/control-plane/");if(req.path==="/studio")return res.redirect(301,"/studio/");if(req.accepts("html"))return res.sendFile(path.join(root,"dist","index.html"),e=>{if(e)next(e);});res.status(404).json({error:"Not found."});});
 app.use((error,_req,res,_next)=>{if(error?.type==="entity.too.large")return res.status(413).json({error:"Yêu cầu vượt quá giới hạn cho phép."});if(error?.type==="entity.parse.failed")return res.status(400).json({error:"JSON request không hợp lệ."});console.error("Request error:",error?.message||error);if(!res.headersSent)res.status(500).json({error:"Lỗi máy chủ. Vui lòng thử lại sau."});});
 const entry=process.argv[1]&&pathToFileURL(resolve(process.argv[1])).href===import.meta.url;
