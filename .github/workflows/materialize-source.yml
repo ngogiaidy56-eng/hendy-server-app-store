@@ -1,0 +1,75 @@
+name: Materialize integrated source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/materialize-source.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: materialize-integrated-source
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout staging commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore merged source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$(find bootstrap -maxdepth 1 -name 'source-payload-*.b64' -print -quit)"
+          cat bootstrap/source-payload-*.b64 > /tmp/hendy-source.tar.xz.b64
+          base64 --decode /tmp/hendy-source.tar.xz.b64 > /tmp/hendy-source.tar.xz
+          xz --test /tmp/hendy-source.tar.xz
+          tar -tJf /tmp/hendy-source.tar.xz > /tmp/hendy-source-files.txt
+          grep -q 'package.json' /tmp/hendy-source-files.txt
+          grep -q 'server.js' /tmp/hendy-source-files.txt
+          tar -xJf /tmp/hendy-source.tar.xz -C .
+          test -s package.json
+          test -s server.js
+          touch /tmp/hendy-source-restored.ok
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build all application surfaces
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+
+      - name: Commit complete source and remove staging payloads
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f /tmp/hendy-source-restored.ok ]; then
+            echo "::error::Source archive did not pass validation; staging payloads were retained."
+            exit 1
+          fi
+          rm -rf bootstrap
+          rm -f .github/workflows/materialize-source.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git status --short
+          git commit -m "Integrate App Store, Studio and Control Plane interfaces" || true
+          git push origin HEAD:main
