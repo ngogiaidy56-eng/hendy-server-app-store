@@ -2,7 +2,7 @@ name: Deploy Cloudflare Pages Frontend
 on:
   push:
     branches: [main]
-    paths: ["src/**", "index.html", "vite.config.ts", "package.json", "package-lock.json", ".github/workflows/deploy-cloudflare-pages.yml"]
+    paths: ["src/**", "apps/**", "packages/**", "scripts/**", "index.html", "admin.html", "public/**", "vite.config.ts", "package.json", "package-lock.json", ".github/workflows/**"]
   workflow_dispatch:
 permissions:
   contents: read
