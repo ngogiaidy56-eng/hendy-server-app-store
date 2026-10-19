@@ -2,9 +2,6 @@ name = "hendy-server-app-store-api"
 main = "worker/index.ts"
 compatibility_date = "2026-10-20"
 workers_dev = true
-
 [vars]
-# Cloudflare Worker is an edge proxy; Render remains the canonical API/database.
-# CI injects both values at deploy time from repository Variables.
 RENDER_API_ORIGIN = ""
 ALLOWED_ORIGIN = ""

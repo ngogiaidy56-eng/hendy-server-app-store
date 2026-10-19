@@ -1,23 +1,19 @@
 name: Verify and Build
-
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
-
 permissions:
   contents: read
-
 concurrency:
   group: verify-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
-  build:
+  verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,9 +21,9 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install --include=dev --no-audit --no-fund
-      - name: Typecheck every workspace and Worker
+      - name: Typecheck all workspaces
         run: npm run typecheck
-      - name: Run API, Worker and package tests
+      - name: Test API and Worker
         run: npm test
-      - name: Build storefront, admin, Control Plane and Studio
+      - name: Build all frontends
         run: npm run build

@@ -1,4 +1,3 @@
 /admin /admin.html 200
-/admin/ /admin.html 200
-/studio /studio/index.html 200
-/control-plane /control-plane/index.html 200
+/control-plane /control-plane/ 301
+/studio /studio/ 301

@@ -1,43 +1,12 @@
 <!doctype html>
-<html lang="vi">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#080d18">
-  <meta name="description" content="Hendy Server App Store — tải phần mềm qua các bản phát hành đã xuất bản, có URL HTTPS và SHA-256.">
-  <title>Hendy Server App Store</title>
-</head>
-<body>
-  <div id="app">
-    <header class="topbar">
-      <a class="brand" href="/" aria-label="Hendy Store"><span class="brand-mark">H</span><span>HENDY<span class="muted"> / STORE</span></span></a>
-      <nav><a href="#apps">Ứng dụng</a><a href="#releases">Bản phát hành</a><a href="#security">Bảo mật</a></nav>
-      <a class="button button-quiet" href="/admin">Quản trị release ↗</a>
-    </header>
-    <main>
-      <section class="hero">
-        <div class="eyebrow"><span class="pulse"></span> HENDY SOFTWARE DISTRIBUTION</div>
-        <h1>Mọi công cụ.<br><span>Một điểm đến.</span></h1>
-        <p class="hero-copy">Trung tâm tải ứng dụng Hendy. Theo dõi phiên bản, kênh phát hành và thông tin tính toàn vẹn của các gói được xuất bản.</p>
-        <div class="hero-actions"><a class="button button-primary" href="#apps">Khám phá ứng dụng <span>↓</span></a><a class="text-link" href="#security">Tìm hiểu bảo mật ↗</a></div>
-        <div class="hero-meta"><span><i></i> Phân phối đa nền tảng</span><span>SHA-256 ready</span><span>Cloudflare · Render</span></div>
-        <div class="hero-orbit orbit-one"></div><div class="hero-orbit orbit-two"></div>
-        <div class="hero-chip"><span class="chip-icon">↗</span><div><b>Release Center</b><small>Version-aware distribution</small></div><span class="chip-live">LIVE API</span></div>
-      </section>
-      <section class="section" id="apps">
-        <div class="section-heading"><div><div class="eyebrow">01 / CATALOG</div><h2>Ứng dụng của bạn</h2></div><span class="section-note">Chọn nền tảng để lọc danh mục</span></div>
-        <div class="filters" role="group" aria-label="Lọc theo nền tảng"><button class="filter active" data-filter="all">Tất cả</button><button class="filter" data-filter="windows">Windows</button><button class="filter" data-filter="android">Android</button><button class="filter" data-filter="ios">iOS</button></div>
-        <div class="app-grid" id="app-grid"><p class="catalog-note">Đang tải danh mục…</p></div>
-        <p class="catalog-note">Chỉ bản phát hành ở trạng thái công khai mới xuất hiện tại đây. Hệ thống không tạo liên kết tải hoặc mã băm giả.</p>
-      </section>
-      <section class="release-band" id="releases">
-        <div><div class="eyebrow">02 / RELEASE CHANNEL</div><h2>Biết rõ bạn đang cài gì.</h2><p>Danh mục được nạp trực tiếp từ API. Bản nháp và bản đã thu hồi không hiển thị với người dùng cuối.</p></div>
-        <div class="status-card"><div class="status-head"><span class="status-dot"></span><span>API STATUS</span><b id="api-status">Đang kiểm tra…</b></div><div class="status-row"><span>Release endpoint</span><code>/api/releases</code></div><div class="status-row"><span>Health endpoint</span><code>/api/health</code></div><div class="status-row"><span>Update check</span><code>/api/update-check</code></div><button id="refresh-status" class="button button-outline" type="button">Kiểm tra lại ↻</button></div>
-      </section>
-      <section class="section security-section" id="security"><div class="eyebrow">03 / SECURITY BY DESIGN</div><h2>Phát hành có trách nhiệm.</h2><div class="security-grid"><article><span class="security-icon">⌁</span><h3>HTTPS</h3><p>Các liên kết tải công khai phải sử dụng HTTPS.</p></article><article><span class="security-icon">#</span><h3>SHA-256</h3><p>Đối chiếu mã băm của gói tải trước khi phân phối.</p></article><article><span class="security-icon">◈</span><h3>Quản trị tách biệt</h3><p>Giao diện quản trị có trang và quy trình xác thực riêng tại <a href="/admin">/admin</a>.</p></article></div></section>
-    </main>
-    <footer><a class="brand" href="/"><span class="brand-mark">H</span><span>HENDY<span class="muted"> / STORE</span></span></a><span>© <span id="year"></span> Hendy Server App Store</span><span>Built for clarity · Security · Reliability</span></footer>
-  </div>
-  <script type="module" src="/src/store.ts"></script>
-</body>
-</html>
+<html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101014"><meta name="description" content="Hendy App Store — trung tâm phát hành ứng dụng đa nền tảng, kèm phiên bản và mã kiểm tra SHA-256."><title>Hendy Store — Phân phối phần mềm</title></head>
+<body><div class="site-shell">
+<header class="topbar"><a class="brand" href="/" aria-label="Hendy Store"><span class="brand-mark">H</span><span>HENDY<span class="brand-sub"> / STORE</span></span></a><nav class="top-nav"><a href="#catalog">Danh mục</a><a href="#releases">Bản phát hành</a><a href="#trust">An toàn</a></nav><a class="button button-muted" href="/admin">Release Admin <span>↗</span></a></header>
+<main>
+<section class="hero"><div class="hero-copy-col"><div class="eyebrow"><i class="status-pulse"></i> HENDY SOFTWARE DISTRIBUTION / V2</div><h1>Công cụ của bạn.<br><span>Một nơi an toàn.</span></h1><p class="hero-lead">Trung tâm phát hành Hendy — khám phá ứng dụng, chọn nền tảng và kiểm tra mã băm của từng gói cài đặt trước khi sử dụng.</p><div class="hero-actions"><a class="button button-primary" href="#catalog">Khám phá ứng dụng <span>↓</span></a><a class="quiet-link" href="#trust">Tìm hiểu bảo mật ↗</a></div><div class="hero-facts"><span>WINDOWS · ANDROID · IOS</span><span>HTTPS + SHA-256</span><span>POSTGRESQL · R2</span></div></div>
+<div class="hero-visual" aria-hidden="true"><div class="visual-grid"></div><div class="visual-orbit orbit-a"></div><div class="visual-orbit orbit-b"></div><div class="visual-core"><span class="core-mark">H</span><span class="core-caption">HENDY / RELEASE ENGINE</span><b>2.0</b><span class="core-state"><i></i> VERIFIED CATALOGUE</span></div><div class="float-card float-top"><span class="float-icon">↗</span><div><b>Version-aware</b><small>Update check API</small></div></div><div class="float-card float-bottom"><span class="float-icon">✓</span><div><b>Integrity metadata</b><small>SHA-256 per release</small></div></div></div></section>
+<section class="stats-row" aria-label="Thông tin cửa hàng"><div><span id="release-count" class="stat-value">—</span><span class="stat-label">Bản phát hành công khai</span></div><div><span id="platform-count" class="stat-value">03</span><span class="stat-label">Nền tảng mục tiêu</span></div><div><span id="api-status" class="stat-value stat-status">Đang kiểm tra</span><span class="stat-label">Trạng thái API</span></div><div><span class="stat-value">v2.0.0</span><span class="stat-label">Release platform</span></div></section>
+<section class="section" id="catalog"><div class="section-heading"><div><div class="eyebrow">01 / CATALOGUE</div><h2>Chọn nền tảng.</h2></div><p>Danh sách được tải trực tiếp từ API. Bản nháp và bản đã thu hồi không hiển thị công khai.</p></div><div class="filter-row" role="group" aria-label="Lọc nền tảng"><button class="filter-button active" data-filter="all">Tất cả</button><button class="filter-button" data-filter="windows">Windows</button><button class="filter-button" data-filter="android">Android</button><button class="filter-button" data-filter="ios">iOS</button></div><div id="app-grid" class="app-grid"><div class="empty-state">Đang tải danh mục phát hành…</div></div><div id="catalog-message" class="inline-message" role="status"></div></section>
+<section class="release-section" id="releases"><div class="release-copy"><div class="eyebrow">02 / RELEASE CHANNEL</div><h2>Luôn biết<br><span>mình đang cài gì.</span></h2><p>Mỗi bản phát hành có nền tảng, phiên bản, kênh, ghi chú và SHA-256 khi được cung cấp. Chỉ URL HTTPS mới đủ điều kiện xuất bản.</p><a class="quiet-link" href="/api/meta" target="_blank" rel="noopener">Xem API metadata ↗</a></div><div class="api-card"><div class="api-card-head"><i class="api-light"></i><span>PUBLIC API</span><b id="api-label">CONNECTING</b></div><div class="api-row"><span>Health</span><code>/api/health</code></div><div class="api-row"><span>Catalog</span><code>/api/releases</code></div><div class="api-row"><span>Update check</span><code>/api/update-check</code></div><div class="api-card-foot"><span>JSON API</span><span>NO DUMMY DOWNLOADS</span></div></div></section>
+<section class="trust-section" id="trust"><div><div class="eyebrow">03 / TRUST & INTEGRITY</div><h2>Phát hành có trách nhiệm.</h2><p>Giao diện không tự tạo URL, gói cài đặt hay checksum. Dữ liệu hiển thị đến từ bản phát hành thực trên máy chủ.</p></div><div class="trust-grid"><article><span>01</span><h3>HTTPS</h3><p>API chỉ nhận đường dẫn tải sử dụng HTTPS.</p></article><article><span>02</span><h3>SHA-256</h3><p>Checksum giúp đối chiếu tính toàn vẹn của gói.</p></article><article><span>03</span><h3>Cập nhật có kiểm soát</h3><p>Stable, Beta và Preview tách theo nền tảng.</p></article></div></section>
+</main><footer class="footer"><a class="brand" href="/"><span class="brand-mark">H</span><span>HENDY<span class="brand-sub"> / STORE</span></span></a><span>Hendy Server App Store · 2.0.0</span><a href="/control-plane/">Control Plane ↗</a></footer></div><script type="module" src="/src/main.ts"></script></body></html>

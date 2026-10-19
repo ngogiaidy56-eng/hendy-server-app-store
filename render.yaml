@@ -4,7 +4,6 @@ databases:
     user: hendy_store
     plan: 0.1c-256mb
     region: singapore
-
 services:
   - type: web
     name: hendy-server-app-store
@@ -13,7 +12,7 @@ services:
     region: singapore
     branch: main
     autoDeployTrigger: commit
-    buildCommand: npm install --include=dev --no-audit --no-fund && npm run typecheck && npm test && npm run build
+    buildCommand: npm install --include=dev --no-audit --no-fund && npm run check
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
@@ -24,7 +23,7 @@ services:
           name: hendy-store-db
           property: connectionString
       - key: ADMIN_API_TOKEN
-        sync: false
+        generateValue: true
       - key: R2_ACCOUNT_ID
         sync: false
       - key: R2_ACCESS_KEY_ID
@@ -35,5 +34,5 @@ services:
         sync: false
       - key: R2_PUBLIC_BASE_URL
         sync: false
-      - key: RELEASES_JSON
-        value: "[]"
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false

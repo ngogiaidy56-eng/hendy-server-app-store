@@ -1,24 +1,26 @@
-name: Trigger Render Deploy (Manual Fallback)
-
+name: Trigger Render Deployment
 on:
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
-      - name: Require a Render deploy hook
-        env:
-          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install and validate candidate
         run: |
-          if [ -z "$DEPLOY_HOOK" ]; then
-            echo "::error::Set RENDER_DEPLOY_HOOK_URL in GitHub Actions Secrets or use Render Blueprint auto-deploy."
-            exit 1
-          fi
-      - name: Trigger Render deploy hook
+          npm install --include=dev --no-audit --no-fund
+          npm run check
+      - name: Trigger Render deploy hook when configured
+        if: ${{ secrets.RENDER_DEPLOY_HOOK != '' }}
         env:
-          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
-        run: curl --fail --silent --show-error --request POST "$DEPLOY_HOOK"
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: curl --fail --silent --show-error --request POST "$RENDER_DEPLOY_HOOK"
+      - name: Explain automatic deploy
+        if: ${{ secrets.RENDER_DEPLOY_HOOK == '' }}
+        run: echo "RENDER_DEPLOY_HOOK missing; Blueprint auto-deploys commits on main."
