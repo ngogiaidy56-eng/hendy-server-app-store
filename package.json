@@ -1,8 +1,11 @@
 {
   "name": "hendy-server-app-store",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "concurrently -k -n store,studio,admin -c green,magenta,blue \"npm:dev:store\" \"npm:dev:studio\" \"npm:dev:admin\"",
     "dev:store": "vite --host 0.0.0.0 --port 5173",
@@ -17,10 +20,24 @@
     "start": "node server.js",
     "deploy": "wrangler deploy",
     "test": "node --test test/*.test.mjs && npm run test --workspace @hendy/studio-web && npm run test --workspace @hendy/core-utils",
-    "check": "npm run typecheck && npm test && npm run build",
-    "db:init": "node scripts/init-db.mjs"
+    "check": "npm run typecheck && npm test && npm run build"
   },
-  "dependencies": { "express": "^5.1.0", "@aws-sdk/client-s3": "^3.828.0", "pg": "^8.16.3" },
-  "devDependencies": { "@types/express": "^5.0.3", "@types/node": "^22.15.0", "typescript": "^5.9.3", "vite": "^6.4.1", "wrangler": "^4.42.0", "@types/pg": "^8.15.5", "concurrently": "^9.1.2" },
-  "workspaces": ["apps/*", "packages/*"]
+  "dependencies": {
+    "express": "^5.1.0",
+    "@aws-sdk/client-s3": "^3.828.0",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.15.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.1",
+    "wrangler": "^4.42.0",
+    "@types/pg": "^8.15.5",
+    "concurrently": "^9.1.2"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
 }

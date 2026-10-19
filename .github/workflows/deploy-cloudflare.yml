@@ -1,43 +1,60 @@
-name: Deploy Cloudflare Worker API
+name: Deploy Cloudflare API Edge Proxy
+
 on:
   push:
     branches: [main]
-    paths: ["worker/**", "wrangler.toml", "migrations/**", "package.json", "package-lock.json", ".github/workflows/deploy-cloudflare.yml"]
+    paths:
+      - "worker/**"
+      - "wrangler.toml"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-cloudflare.yml"
   workflow_dispatch:
+
 permissions:
   contents: read
+
 concurrency:
-  group: deploy-cloudflare-api
+  group: deploy-cloudflare-edge
   cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - name: Check deployment credentials
-        id: credentials
+      - name: Check Cloudflare and backend configuration
+        id: config
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          RENDER_API_ORIGIN: ${{ vars.RENDER_API_ORIGIN }}
+          ALLOWED_ORIGIN: ${{ vars.ALLOWED_ORIGIN }}
+        shell: bash
         run: |
-          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+          set -euo pipefail
+          if [[ -n "$CLOUDFLARE_API_TOKEN" && -n "$CLOUDFLARE_ACCOUNT_ID" && -n "$RENDER_API_ORIGIN" && -n "$ALLOWED_ORIGIN" ]]; then
+            node --input-type=module -e 'for (const [key,value] of Object.entries({RENDER_API_ORIGIN:process.env.RENDER_API_ORIGIN,ALLOWED_ORIGIN:process.env.ALLOWED_ORIGIN})) { const u=new URL(value); if(u.protocol!=="https:" || u.pathname!=="/" || u.search || u.hash || u.username || u.password) { console.error(key+" must be an HTTPS origin without path/query."); process.exitCode=1; } }'
             echo "configured=true" >> "$GITHUB_OUTPUT"
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Worker deployment skipped. Set secrets CLOUDFLARE_API_TOKEN/CLOUDFLARE_ACCOUNT_ID and variables RENDER_API_ORIGIN/ALLOWED_ORIGIN."
           fi
       - uses: actions/checkout@v4
-        if: steps.credentials.outputs.configured == 'true'
+        if: steps.config.outputs.configured == 'true'
       - uses: actions/setup-node@v4
-        if: steps.credentials.outputs.configured == 'true'
+        if: steps.config.outputs.configured == 'true'
         with:
           node-version: 22
-      - run: npm install
-        if: steps.credentials.outputs.configured == 'true'
-      - name: Deploy Worker
-        if: steps.credentials.outputs.configured == 'true'
-        run: npx wrangler deploy
+          cache: npm
+      - name: Install and verify types
+        if: steps.config.outputs.configured == 'true'
+        run: npm install --include=dev --no-audit --no-fund && npm run typecheck
+      - name: Deploy edge proxy
+        if: steps.config.outputs.configured == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      - name: Explain skipped deployment
-        if: steps.credentials.outputs.configured != 'true'
-        run: echo "::warning::Skipped Worker deployment because CLOUDFLARE_API_TOKEN and/or CLOUDFLARE_ACCOUNT_ID is not configured in GitHub Actions Secrets."
+          RENDER_API_ORIGIN: ${{ vars.RENDER_API_ORIGIN }}
+          ALLOWED_ORIGIN: ${{ vars.ALLOWED_ORIGIN }}
+        run: npx wrangler deploy --var "RENDER_API_ORIGIN:${RENDER_API_ORIGIN}" --var "ALLOWED_ORIGIN:${ALLOWED_ORIGIN}"

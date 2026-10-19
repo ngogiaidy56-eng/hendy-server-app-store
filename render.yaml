@@ -11,7 +11,9 @@ services:
     runtime: node
     plan: free
     region: singapore
-    buildCommand: npm install && npm run build
+    branch: main
+    autoDeployTrigger: commit
+    buildCommand: npm install --include=dev --no-audit --no-fund && npm run typecheck && npm test && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:

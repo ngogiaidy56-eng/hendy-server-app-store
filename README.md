@@ -1,60 +1,95 @@
-# Hendy Server App Store · Integrated Workspaces
+# Hendy Server App Store — Render + Cloudflare
 
-Nền tảng phân phối phần mềm Hendy với giao diện cửa hàng công khai, giao diện quản trị release và hai workspace riêng cho Control Plane và Studio. Backend vẫn cung cấp API release, kiểm tra cập nhật, PostgreSQL/D1 và Cloudflare R2.
+Monorepo triển khai cho Hendy Server App Store với bốn giao diện riêng biệt: Storefront, Release Admin, Control Plane và Studio. **Render là backend chuẩn** (Express + PostgreSQL + Cloudflare R2); Cloudflare Pages phục vụ frontend tĩnh và Cloudflare Worker làm lớp edge proxy vào cùng backend đó. Thiết kế này tránh tình trạng Render/PostgreSQL và Worker/D1 giữ hai bộ release không đồng bộ.
 
-## Giao diện
+## 1. Kiến trúc triển khai
 
-| Route | Surface | Mục đích |
-| --- | --- | --- |
-| `/` | Storefront | Danh mục tải Windows, Android, iOS; chỉ hiển thị release công khai |
-| `/admin` | Release Admin | Tạo release metadata, upload binary qua API (tối đa 25 MiB), xuất bản/thu hồi |
-| `/control-plane/` | Control Plane | Dashboard vận hành, quản lý release qua API và hướng dẫn quy trình phát hành |
-| `/studio/` | Studio | Workspace media/timeline/subtitle và tải project manifest JSON |
+```text
+User browser
+   │
+   ├── Cloudflare Pages ── Storefront /
+   │                    ├─ Release Admin /admin
+   │                    ├─ Control Plane /control-plane/
+   │                    └─ Studio /studio/
+   │
+   └── Cloudflare Worker (API edge proxy)
+                    │ HTTPS + restricted CORS
+                    ▼
+           Render Web Service (Express)
+                    ├── PostgreSQL (release metadata)
+                    └── Cloudflare R2 (binary packages)
+```
 
-Các giao diện là các entry point độc lập, được build vào `dist/index.html`, `dist/admin.html`, `dist/control-plane/index.html` và `dist/studio/index.html`. Express định tuyến tới từng entry; Cloudflare Pages dùng `public/_redirects`.
+Render và Cloudflare dùng cùng một nguồn dữ liệu vì Worker chỉ chuyển tiếp request/response; Worker không tạo D1 database thứ hai. Có thể mở toàn bộ ứng dụng từ Render cùng origin hoặc mở frontend qua Cloudflare Pages.
 
-## Chạy local
+## 2. Routes
 
-Yêu cầu Node.js 22+.
+| Route | Vai trò |
+| --- | --- |
+| `/` | Cửa hàng công khai — Windows, Android, iOS |
+| `/admin` | Quản trị metadata release, upload binary, xuất bản/thu hồi |
+| `/control-plane/` | Dashboard vận hành và quản lý release |
+| `/studio/` | Media local, timeline, subtitle và xuất project manifest JSON |
+| `/api/health` | Health check backend |
+| `/api/releases` | Release đã xuất bản |
+| `/api/update-check` | Kiểm tra phiên bản mới |
+| `/api/admin/releases` | Quản trị release (Bearer token) |
+| `/api/admin/uploads` | Upload binary lên R2, giới hạn hiện tại 25 MiB mỗi request |
+
+## 3. Chạy local
+
+Yêu cầu Node.js 22.x.
 
 ```bash
-npm install
-npm run dev
+npm install --include=dev
 npm run typecheck
 npm test
 npm run build
 npm start
 ```
 
-Mở `http://localhost:5173` cho storefront, `http://localhost:5174/control-plane/` cho Control Plane dev server, `http://localhost:5175/studio/` cho Studio. Server production mặc định lắng nghe cổng 10000; các route giao diện được phục vụ từ thư mục `dist`.
+Mặc định Render app nghe cổng `PORT` do nền tảng cấp (fallback local: 10000). Mở `http://localhost:10000`. Các lệnh dev chạy storefront ở 5173, Control Plane ở 5174 và Studio ở 5175.
 
-## API release
+Không cấu hình `DATABASE_URL` thì API chỉ dùng `RELEASES_JSON` dạng read-only; thao tác quản trị sẽ bị khóa chủ động. Để thử quản trị, cần PostgreSQL, `ADMIN_API_TOKEN`, và các biến R2 nếu cần upload.
 
-- `GET /api/health` — health check.
-- `GET /api/releases` — release đã xuất bản.
-- `GET /api/update-check?platform=windows&channel=stable&clientVersion=1.0.0` — kiểm tra cập nhật.
-- `GET /api/admin/releases` — đọc toàn bộ release, cần Bearer token.
-- `POST /api/admin/releases` — tạo metadata release, cần Bearer token.
-- `PATCH /api/admin/releases/:id` và `DELETE /api/admin/releases/:id` — quản trị release.
-- `POST /api/admin/uploads` — upload binary lên R2, raw body `application/octet-stream`, tối đa 25 MiB.
+## 4. Triển khai Render
 
-Quản trị ghi cần `ADMIN_API_TOKEN` và `DATABASE_URL` (PostgreSQL) trên Render hoặc binding D1 đúng trên Worker. Upload cần cấu hình R2 và domain HTTPS. Không commit token, credential, D1 database ID chưa xác minh hoặc binary mẫu.
+Mở [Render Blueprint](https://dashboard.render.com/blueprint/new?repo=https://github.com/ngogiaidy56-eng/hendy-server-app-store) sau khi xác nhận repository trên GitHub có commit mới nhất.
 
-## Deploy Render
+Blueprint ở `render.yaml` tạo Web Service Node và PostgreSQL. Build command cài cả dev dependencies, kiểm tra TypeScript, chạy tests và build tất cả entry trước khi start. Health check là `/api/health`.
 
-Dùng `render.yaml` làm Blueprint, kiểm tra plan/vùng trước khi tạo tài nguyên. Đặt các biến secrets trên Render; health check là `/api/health`. Web Service phục vụ cả UI và API trên cùng origin.
+Đặt biến môi trường trực tiếp trong Render Dashboard:
+- `ADMIN_API_TOKEN`: token dài, ngẫu nhiên và riêng cho API quản trị.
+- `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`: credentials R2 phù hợp với bucket phân phối.
+- `R2_PUBLIC_BASE_URL`: origin HTTPS của custom domain/public bucket đã thiết lập trong Cloudflare R2.
+- `DATABASE_URL` được liên kết từ PostgreSQL của Blueprint.
 
-## Deploy Cloudflare
+Không đặt secrets trong repository hoặc GitHub Variables dạng công khai. Sau khi Apply, lấy URL thật của Web Service từ Render Dashboard; đó là giá trị `RENDER_API_ORIGIN` cho Worker.
 
-1. Tạo D1 database và R2 bucket; cấu hình bindings trong `wrangler.toml`.
-2. Đặt `ADMIN_API_TOKEN` bằng `npx wrangler secret put ADMIN_API_TOKEN`.
-3. Trong GitHub Actions, đặt secrets `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, biến `CLOUDFLARE_PAGES_PROJECT`; đặt `VITE_API_BASE_URL` nếu API Worker dùng origin khác.
-4. Workflow Pages build toàn bộ entry và upload thư mục `dist`. Workflow Worker deploy API riêng.
+## 5. Triển khai Cloudflare
 
-## Phạm vi và bảo mật
+Tạo trước một Cloudflare Pages project và deploy Worker `hendy-server-app-store-api`. Trong repository GitHub, thiết lập **Actions Secrets**:
+- `CLOUDFLARE_API_TOKEN` — token có quyền deploy Workers và Pages trong đúng account.
+- `CLOUDFLARE_ACCOUNT_ID` — Cloudflare account ID.
 
-- Storefront chỉ đọc API công khai; Release Admin và Control Plane gọi endpoint quản trị bằng Bearer token trong session của tab.
-- `noindex` không phải kiểm soát truy cập. Trước khi mở quản trị cho nhiều người, hãy bật Cloudflare Access/SSO, giới hạn origin CORS, bổ sung rate limit và audit log.
-- Studio hiện quản lý media local, clip/timeline/subtitle metadata và xuất project manifest JSON. Đây không phải file MP4 đã render; cần tích hợp trusted render worker/FFmpeg pipeline để xuất video thật.
-- Control Plane hiển thị luồng vận hành và quản lý release metadata; nó không tự tạo binary, ký ứng dụng hoặc triển khai ứng dụng người dùng nếu chưa cấu hình build/sign/release pipeline.
-- Bản build CI cần được chạy và kiểm tra trong môi trường có npm registry/runner trước khi coi là production-verified.
+Thiết lập **Actions Variables**:
+- `CLOUDFLARE_PAGES_PROJECT` — đúng tên Pages project đã tạo.
+- `RENDER_API_ORIGIN` — origin HTTPS của Render Web Service, ví dụ `https://your-service.onrender.com` (không kèm path).
+- `ALLOWED_ORIGIN` — origin chính xác của Pages/custom domain, ví dụ `https://your-project.pages.dev` (không kèm path).
+- `VITE_API_BASE_URL` — origin HTTPS của Worker, ví dụ `https://hendy-server-app-store-api.<account-subdomain>.workers.dev` (không kèm path).
+
+Workflow Worker injects `RENDER_API_ORIGIN` và `ALLOWED_ORIGIN` trong lúc deploy. Workflow Pages build các entry với `VITE_API_BASE_URL`, chạy typecheck/tests và deploy thư mục `dist`. Nếu thiếu biến hay secrets, workflow ghi warning và bỏ qua deploy thay vì phát hành frontend không kết nối được API.
+
+CORS được giới hạn theo đúng một origin. Khi sử dụng custom domain, cập nhật `ALLOWED_ORIGIN` theo domain đó. Không dùng token `ADMIN_API_TOKEN` làm `CLOUDFLARE_API_TOKEN`.
+
+## 6. API và bảo mật
+
+- Backend dùng Bearer-token admin authorization và từ chối thao tác ghi khi chưa có token hoặc PostgreSQL.
+- Release published phải có URL HTTPS, SHA-256 gồm 64 ký tự hex và dung lượng lớn hơn 0.
+- R2 uploads kiểm tra phần mở rộng, giới hạn 25 MiB và tính SHA-256 từ nội dung thực tế.
+- Không dùng `noindex` thay cho xác thực. Với quản trị nhiều người, nên bổ sung Cloudflare Access/SSO, rate limits và audit log.
+- GitHub Actions cần được bật trong repository để CI/automatic deployment workflows chạy.
+
+## 7. Phạm vi hiện tại
+
+Studio đang quản lý media local, clip/timeline/subtitle metadata và xuất project manifest JSON — không giả định rằng MP4 đã được render. Muốn xuất video thật cần tích hợp render worker/FFmpeg pipeline. Tương tự, Control Plane quản lý release metadata; việc build, ký số và phát hành app Windows/Android/iOS phải được nối với pipeline CI/signing tương ứng.
