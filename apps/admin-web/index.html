@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="vi">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#0b1020"><title>Hendy Control Plane</title></head>
+<body><div id="control-app">
+  <aside class="sidebar">
+    <a class="brand" href="/"><span class="brand-symbol">H</span><span>HENDY <small>CONTROL PLANE</small></span></a>
+    <div class="side-label">WORKSPACE</div>
+    <button class="side-item active" data-section="overview"><span>◫</span>Tổng quan</button>
+    <button class="side-item" data-section="releases"><span>◈</span>Bản phát hành</button>
+    <button class="side-item" data-section="pipelines"><span>⌘</span>Pipeline</button>
+    <button class="side-item" data-section="settings"><span>⚙</span>Cấu hình</button>
+    <div class="side-spacer"></div>
+    <a class="side-item side-link" href="/">↗ Cửa hàng công khai</a>
+    <div class="side-foot"><span class="online-dot"></span> API CONTROL <b id="api-health">Đang kiểm tra</b></div>
+  </aside>
+  <main class="main-area">
+    <header class="appbar"><div><div class="crumb">HENDY / PLATFORM ADMINISTRATION</div><h1 id="page-title">Tổng quan hệ thống</h1></div><div class="appbar-actions"><span class="env-pill">PRODUCTION WORKSPACE</span><button id="connect-btn" class="btn btn-primary">Kết nối quản trị ↗</button><button id="logout-btn" class="btn btn-quiet" hidden>Thoát</button></div></header>
+    <section id="auth-notice" class="notice"><div><strong>Phiên quản trị chưa kết nối</strong><p>Nhập ADMIN_API_TOKEN của backend để nạp dữ liệu release và bật thao tác ghi. Token chỉ được lưu trong session của tab hiện tại.</p></div><form id="token-form"><input id="admin-token" type="password" autocomplete="current-password" placeholder="Admin API token" required><button class="btn btn-primary" type="submit">Xác thực</button></form></section>
+    <section class="metric-grid" id="overview-metrics"><article class="metric-card"><span>RELEASES</span><strong id="metric-total">—</strong><small>Tổng metadata đã đọc</small></article><article class="metric-card"><span>PUBLISHED</span><strong id="metric-published">—</strong><small>Đang công khai</small></article><article class="metric-card"><span>PLATFORMS</span><strong id="metric-platforms">—</strong><small>Nền tảng có release</small></article><article class="metric-card"><span>API STATUS</span><strong id="metric-status">Chưa kết nối</strong><small>Trạng thái hiện tại</small></article></section>
+    <section class="work-grid">
+      <article class="panel release-panel" id="release-panel"><div class="panel-head"><div><div class="eyebrow">RELEASE MANAGEMENT</div><h2>Bản phát hành</h2></div><button id="refresh-releases" class="btn btn-quiet">Làm mới ↻</button></div>
+        <p class="muted-copy">Tạo metadata release, kiểm tra URL, SHA-256 và trạng thái xuất bản. Chỉ bản đã xuất bản mới xuất hiện ở cửa hàng.</p>
+        <form id="release-form" class="release-form">
+          <label>Tên ứng dụng<input name="name" required maxlength="120" value="Hendy Tools"></label>
+          <label>Phiên bản<input name="version" required maxlength="64" placeholder="2.1.0"></label>
+          <label>Nền tảng<select name="platform"><option value="windows">Windows</option><option value="android">Android</option><option value="ios">iOS</option></select></label>
+          <label>Kênh<select name="channel"><option value="stable">Stable</option><option value="beta">Beta</option><option value="preview">Preview</option></select></label>
+          <label>URL HTTPS<input name="downloadUrl" type="url" placeholder="https://downloads.example.com/app.exe"></label>
+          <label>SHA-256<input name="sha256" pattern="[a-fA-F0-9]{64}" maxlength="64" placeholder="64 ký tự hex"></label>
+          <label>Dung lượng (byte)<input name="fileSize" type="number" min="0" step="1" value="0"></label>
+          <label>Build number<input name="build" type="number" min="0" step="1" value="0"></label>
+          <label class="wide">Ghi chú<textarea name="releaseNotes" rows="2" maxlength="8000" placeholder="Điểm mới và sửa lỗi"></textarea></label>
+          <label class="check-row"><input name="mandatory" type="checkbox"> Cập nhật bắt buộc</label>
+          <label>Trạng thái<select name="status"><option value="draft">Bản nháp</option><option value="published">Xuất bản</option></select></label>
+          <button class="btn btn-primary wide" type="submit">Tạo release</button>
+        </form>
+        <div id="message" role="status" class="message"></div><div id="release-list" class="release-list"><div class="empty">Kết nối token quản trị để tải release.</div></div>
+      </article>
+      <article class="panel ops-panel" id="ops-panel"><div class="panel-head"><div><div class="eyebrow">OPERATIONS</div><h2>Luồng phát hành</h2></div><span class="status-badge">LIVE API</span></div>
+        <div class="ops-step"><span class="step-no">01</span><div><strong>Chuẩn bị gói phần mềm</strong><p>Build đúng nền tảng, phiên bản và kiến trúc; lưu mã nguồn cùng log build.</p></div></div>
+        <div class="ops-step"><span class="step-no">02</span><div><strong>Đưa binary lên storage</strong><p>Dùng R2 hoặc kho HTTPS riêng. Đối với upload API hiện tại, giới hạn trực tiếp là 25 MiB.</p></div></div>
+        <div class="ops-step"><span class="step-no">03</span><div><strong>Đối chiếu SHA-256</strong><p>Hash phải lấy từ đúng tệp phân phối, không nhập một giá trị minh họa.</p></div></div>
+        <div class="ops-step"><span class="step-no">04</span><div><strong>Xuất bản cho người dùng</strong><p>Chuyển trạng thái release sang published sau khi đã xác minh gói tải và URL.</p></div></div>
+        <div class="warning"><strong>Deployment note</strong><p>UI này không tự tạo binary hay triển khai ứng dụng mới. Hãy tích hợp pipeline build/sign/release của sản phẩm trước khi quảng bá tự động hóa.</p></div>
+      </article>
+    </section>
+    <section class="panel pipeline-panel" id="pipeline-section"><div class="panel-head"><div><div class="eyebrow">AUTOMATION MAP</div><h2>Pipeline & nền tảng</h2></div></div><div class="pipeline-row"><div class="pipeline-node">SOURCE<br><small>Git repository</small></div><span>→</span><div class="pipeline-node">BUILD<br><small>CI workflow</small></div><span>→</span><div class="pipeline-node">VERIFY<br><small>Hash / tests</small></div><span>→</span><div class="pipeline-node">PUBLISH<br><small>App Store</small></div></div><div class="platform-row"><span>Windows · EXE / MSI</span><span>Android · APK / AAB</span><span>iOS · IPA</span></div></section>
+    <footer><span>Hendy Control Plane</span><span>Private surface · API authorization required</span></footer>
+  </main>
+</div><script type="module" src="./src/main.ts"></script></body></html>

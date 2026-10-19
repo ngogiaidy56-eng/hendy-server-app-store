@@ -4,45 +4,40 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#080d18">
-  <meta name="description" content="Hendy Server App Store — trung tâm phân phối ứng dụng và quản lý phiên bản an toàn.">
+  <meta name="description" content="Hendy Server App Store — tải phần mềm qua các bản phát hành đã xuất bản, có URL HTTPS và SHA-256.">
   <title>Hendy Server App Store</title>
 </head>
 <body>
   <div id="app">
-    <header class="topbar"><a class="brand" href="/" aria-label="Hendy Store"><span class="brand-mark">H</span><span>HENDY<span class="muted"> / STORE</span></span></a><nav><a href="#apps">Ứng dụng</a><a href="#releases">Bản phát hành</a><a href="#security">Bảo mật</a></nav><button id="admin-toggle" class="button button-quiet">Bảng quản trị ↗</button></header>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Hendy Store"><span class="brand-mark">H</span><span>HENDY<span class="muted"> / STORE</span></span></a>
+      <nav><a href="#apps">Ứng dụng</a><a href="#releases">Bản phát hành</a><a href="#security">Bảo mật</a></nav>
+      <a class="button button-quiet" href="/admin">Quản trị release ↗</a>
+    </header>
     <main>
-      <section class="hero"><div class="eyebrow"><span class="pulse"></span> HENDY SOFTWARE DISTRIBUTION</div><h1>Mọi công cụ.<br><span>Một điểm đến.</span></h1><p class="hero-copy">Trung tâm tải ứng dụng và theo dõi phiên bản Hendy. Rõ ràng về nguồn tải, phiên bản và tính toàn vẹn của từng gói phát hành.</p><div class="hero-actions"><a class="button button-primary" href="#apps">Khám phá ứng dụng <span>↓</span></a><a class="text-link" href="#security">Tìm hiểu bảo mật ↗</a></div><div class="hero-meta"><span><i></i> Phân phối đa nền tảng</span><span>SHA-256 ready</span><span>Cloudflare · Render</span></div><div class="hero-orbit orbit-one"></div><div class="hero-orbit orbit-two"></div><div class="hero-chip"><span class="chip-icon">↗</span><div><b>Release Center</b><small>Version-aware distribution</small></div><span class="chip-live">LIVE API</span></div></section>
-      <section class="section" id="apps"><div class="section-heading"><div><div class="eyebrow">01 / CATALOG</div><h2>Ứng dụng của bạn</h2></div><span class="section-note">Chọn nền tảng để lọc danh mục</span></div><div class="filters" role="group" aria-label="Lọc theo nền tảng"><button class="filter active" data-filter="all">Tất cả</button><button class="filter" data-filter="windows">Windows</button><button class="filter" data-filter="android">Android</button><button class="filter" data-filter="ios">iOS</button></div><div class="app-grid" id="app-grid"></div><p class="catalog-note">Liên kết tải chỉ xuất hiện khi release được xuất bản. Không có tệp cài đặt mẫu hoặc mã băm giả được coi là bản phát hành chính thức.</p></section>
-      <section class="release-band" id="releases"><div><div class="eyebrow">02 / RELEASE CHANNEL</div><h2>Biết rõ bạn đang cài gì.</h2><p>Kiểm tra phiên bản, kênh phát hành và trạng thái API trước khi phân phối cho người dùng.</p></div><div class="status-card"><div class="status-head"><span class="status-dot"></span><span>API STATUS</span><b id="api-status">Đang kiểm tra…</b></div><div class="status-row"><span>Release endpoint</span><code>/api/releases</code></div><div class="status-row"><span>Health endpoint</span><code>/api/health</code></div><div class="status-row"><span>Update check</span><code>/api/update-check</code></div><button id="refresh-status" class="button button-outline">Kiểm tra lại ↻</button></div></section>
-      <section class="section security-section" id="security"><div class="eyebrow">03 / SECURITY BY DESIGN</div><h2>Phát hành có trách nhiệm.</h2><div class="security-grid"><article><span class="security-icon">⌁</span><h3>Kiểm tra nguồn tải</h3><p>Chỉ hiển thị URL HTTPS đã cấu hình; liên kết tải xuống không tự động được tạo từ dữ liệu chưa xác thực.</p></article><article><span class="security-icon">#</span><h3>SHA-256</h3><p>Hệ thống tính SHA-256 khi tải tệp lên R2 để hỗ trợ đối chiếu tính toàn vẹn của gói cài đặt.</p></article><article><span class="security-icon">◈</span><h3>Quản trị an toàn</h3><p>Các thao tác quản trị dùng token phía máy chủ. Token trong giao diện chỉ được lưu tạm trong session của trình duyệt.</p></article></div></section>
-      <section class="admin-panel" id="admin-panel" hidden>
-        <div class="section-heading"><div><div class="eyebrow">PRIVATE OPERATIONS</div><h2>Quản lý bản phát hành</h2></div><button id="close-admin" class="button button-quiet">Đóng ×</button></div>
-        <p>Token quản trị được xác thực tại backend. Cần cấu hình ADMIN_API_TOKEN và cơ sở dữ liệu bền vững trước khi dùng chức năng xuất bản.</p>
-        <form id="admin-login-form" class="admin-login"><label for="admin-token">Admin API token</label><div class="login-row"><input id="admin-token" type="password" autocomplete="current-password" required placeholder="Nhập token quản trị"><button class="button button-primary" type="submit">Kết nối</button><button id="admin-logout" class="button button-quiet" type="button" hidden>Thoát</button></div></form>
-        <div id="admin-message" class="admin-message" role="status" aria-live="polite"></div><div id="admin-summary" class="admin-summary"></div>
-        <div id="admin-workspace" hidden>
-          <form id="release-form" class="release-form">
-            <div class="form-heading"><div><div class="eyebrow">RELEASE BUILDER</div><h3>Tạo bản phát hành</h3></div><span class="section-note">Tải trực tiếp tối đa 25 MiB</span></div>
-            <div class="form-grid">
-              <label>Tên ứng dụng<input name="name" required maxlength="120" value="Hendy Tools"></label>
-              <label>Phiên bản<input name="version" required maxlength="64" placeholder="2.0.0"></label>
-              <label>Nền tảng<select name="platform" required><option value="windows">Windows</option><option value="android">Android</option><option value="ios">iOS</option></select></label>
-              <label>Kênh<select name="channel" required><option value="stable">Stable</option><option value="beta">Beta</option><option value="preview">Preview</option></select></label>
-              <label>Build number<input name="build" type="number" min="0" step="1" value="0"></label>
-              <label>Trạng thái<select name="status"><option value="draft">Bản nháp</option><option value="published">Xuất bản công khai</option></select></label>
-              <label class="full-width">Tệp ứng dụng<input id="release-file" name="file" type="file" accept=".exe,.msi,.msix,.zip,.7z,.apk,.aab,.dmg,.pkg,.ipa,.appimage"></label>
-              <label class="full-width">Hoặc URL HTTPS của tệp<input name="downloadUrl" type="url" placeholder="https://downloads.example.com/app.exe"></label>
-              <label class="full-width">SHA-256<input name="sha256" inputmode="text" pattern="[a-fA-F0-9]{64}" maxlength="64" placeholder="64 ký tự hex — tự điền khi tải tệp lên"></label>
-              <label>Dung lượng (byte)<input name="fileSize" type="number" min="0" step="1" value="0"></label>
-              <label class="checkbox-label"><input name="mandatory" type="checkbox"> Cập nhật bắt buộc</label>
-              <label class="full-width">Ghi chú phát hành<textarea name="releaseNotes" rows="3" maxlength="8000" placeholder="Điểm mới, sửa lỗi, lưu ý cập nhật..."></textarea></label>
-            </div>
-            <div class="form-actions"><button class="button button-primary" type="submit">Lưu bản phát hành ↗</button><span class="section-note">Chỉ bản “Xuất bản công khai” mới hiển thị với người dùng.</span></div>
-          </form>
-          <div class="release-list-heading"><h3>Các bản phát hành đã lưu</h3><button id="admin-refresh" class="button button-quiet button-small" type="button">Tải lại ↻</button></div>
-          <div id="release-list" class="release-list"></div>
-        </div>
+      <section class="hero">
+        <div class="eyebrow"><span class="pulse"></span> HENDY SOFTWARE DISTRIBUTION</div>
+        <h1>Mọi công cụ.<br><span>Một điểm đến.</span></h1>
+        <p class="hero-copy">Trung tâm tải ứng dụng Hendy. Theo dõi phiên bản, kênh phát hành và thông tin tính toàn vẹn của các gói được xuất bản.</p>
+        <div class="hero-actions"><a class="button button-primary" href="#apps">Khám phá ứng dụng <span>↓</span></a><a class="text-link" href="#security">Tìm hiểu bảo mật ↗</a></div>
+        <div class="hero-meta"><span><i></i> Phân phối đa nền tảng</span><span>SHA-256 ready</span><span>Cloudflare · Render</span></div>
+        <div class="hero-orbit orbit-one"></div><div class="hero-orbit orbit-two"></div>
+        <div class="hero-chip"><span class="chip-icon">↗</span><div><b>Release Center</b><small>Version-aware distribution</small></div><span class="chip-live">LIVE API</span></div>
       </section>
-    </main><footer><a class="brand" href="/"><span class="brand-mark">H</span><span>HENDY<span class="muted"> / STORE</span></span></a><span>© <span id="year"></span> Hendy Server App Store</span><span>Built for clarity · Security · Reliability</span></footer>
-  </div><script type="module" src="/src/main.ts"></script>
-</body></html>
+      <section class="section" id="apps">
+        <div class="section-heading"><div><div class="eyebrow">01 / CATALOG</div><h2>Ứng dụng của bạn</h2></div><span class="section-note">Chọn nền tảng để lọc danh mục</span></div>
+        <div class="filters" role="group" aria-label="Lọc theo nền tảng"><button class="filter active" data-filter="all">Tất cả</button><button class="filter" data-filter="windows">Windows</button><button class="filter" data-filter="android">Android</button><button class="filter" data-filter="ios">iOS</button></div>
+        <div class="app-grid" id="app-grid"><p class="catalog-note">Đang tải danh mục…</p></div>
+        <p class="catalog-note">Chỉ bản phát hành ở trạng thái công khai mới xuất hiện tại đây. Hệ thống không tạo liên kết tải hoặc mã băm giả.</p>
+      </section>
+      <section class="release-band" id="releases">
+        <div><div class="eyebrow">02 / RELEASE CHANNEL</div><h2>Biết rõ bạn đang cài gì.</h2><p>Danh mục được nạp trực tiếp từ API. Bản nháp và bản đã thu hồi không hiển thị với người dùng cuối.</p></div>
+        <div class="status-card"><div class="status-head"><span class="status-dot"></span><span>API STATUS</span><b id="api-status">Đang kiểm tra…</b></div><div class="status-row"><span>Release endpoint</span><code>/api/releases</code></div><div class="status-row"><span>Health endpoint</span><code>/api/health</code></div><div class="status-row"><span>Update check</span><code>/api/update-check</code></div><button id="refresh-status" class="button button-outline" type="button">Kiểm tra lại ↻</button></div>
+      </section>
+      <section class="section security-section" id="security"><div class="eyebrow">03 / SECURITY BY DESIGN</div><h2>Phát hành có trách nhiệm.</h2><div class="security-grid"><article><span class="security-icon">⌁</span><h3>HTTPS</h3><p>Các liên kết tải công khai phải sử dụng HTTPS.</p></article><article><span class="security-icon">#</span><h3>SHA-256</h3><p>Đối chiếu mã băm của gói tải trước khi phân phối.</p></article><article><span class="security-icon">◈</span><h3>Quản trị tách biệt</h3><p>Giao diện quản trị có trang và quy trình xác thực riêng tại <a href="/admin">/admin</a>.</p></article></div></section>
+    </main>
+    <footer><a class="brand" href="/"><span class="brand-mark">H</span><span>HENDY<span class="muted"> / STORE</span></span></a><span>© <span id="year"></span> Hendy Server App Store</span><span>Built for clarity · Security · Reliability</span></footer>
+  </div>
+  <script type="module" src="/src/store.ts"></script>
+</body>
+</html>

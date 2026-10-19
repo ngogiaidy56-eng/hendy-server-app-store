@@ -282,6 +282,17 @@ app.post("/api/admin/uploads", express.raw({ type: "application/octet-stream", l
 });
 
 app.use(express.static(path.join(root, "dist"), { index: false, maxAge: "1h" }));
+
+// Separate, explicit entry points for each UI surface.
+app.get(["/admin", "/admin/"], (_req, res, next) => {
+  res.sendFile(path.join(root, "dist", "admin.html"), err => { if (err) next(err); });
+});
+app.get(["/studio", "/studio/{*path}"], (_req, res, next) => {
+  res.sendFile(path.join(root, "dist", "studio", "index.html"), err => { if (err) next(err); });
+});
+app.get(["/control-plane", "/control-plane/{*path}"], (_req, res, next) => {
+  res.sendFile(path.join(root, "dist", "control-plane", "index.html"), err => { if (err) next(err); });
+});
 app.get("/{*path}", (req, res, next) => {
   if (req.path.startsWith("/api/")) return res.status(404).json({ error: "API route not found" });
   res.sendFile(path.join(root, "dist", "index.html"), err => { if (err) next(err); });
