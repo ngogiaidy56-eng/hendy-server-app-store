@@ -54,7 +54,6 @@ jobs:
         if: steps.config.outputs.configured == 'true'
         with:
           node-version: 22
-          cache: npm
       - name: Install dependencies
         if: steps.config.outputs.configured == 'true'
         run: npm install --include=dev --no-audit --no-fund
