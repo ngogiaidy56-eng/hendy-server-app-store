@@ -1,0 +1,29 @@
+name = "hendy-server-app-store-api"
+main = "worker/index.ts"
+compatibility_date = "2026-10-20"
+workers_dev = true
+
+[vars]
+RELEASES_JSON = "[]"
+# Optional: set this to the exact origin serving the Vite frontend, e.g. https://store.example.com
+# ALLOWED_ORIGIN = "https://store.example.com"
+# Required for R2-hosted binaries; use the public custom domain configured for your bucket.
+# PUBLIC_DOWNLOAD_BASE_URL = "https://downloads.example.com"
+
+# Production persistence: create a D1 database, then uncomment and replace database_id.
+# Create with: npx wrangler d1 create hendy-server-app-store
+# Apply schema with: npx wrangler d1 execute hendy-server-app-store --remote --file=migrations/0001_releases.sql
+# [[d1_databases]]
+# binding = "RELEASES_DB"
+# database_name = "hendy-server-app-store"
+# database_id = "REPLACE_WITH_REAL_D1_DATABASE_ID"
+# migrations_dir = "migrations"
+
+# R2 upload storage: create the bucket, then uncomment this binding.
+# Create with: npx wrangler r2 bucket create hendy-server-app-store-releases
+# [[r2_buckets]]
+# binding = "RELEASES_BUCKET"
+# bucket_name = "hendy-server-app-store-releases"
+
+# Configure secret values separately; never commit them:
+# npx wrangler secret put ADMIN_API_TOKEN

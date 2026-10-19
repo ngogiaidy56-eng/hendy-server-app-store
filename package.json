@@ -1,0 +1,41 @@
+{
+  "name": "hendy-server-app-store",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n store,studio,admin -c green,magenta,blue \"npm:dev:store\" \"npm:dev:studio\" \"npm:dev:admin\"",
+    "dev:store": "vite --host 0.0.0.0 --port 5173",
+    "dev:studio": "npm run dev --workspace @hendy/studio-web",
+    "dev:admin": "npm run dev --workspace @hendy/admin-web",
+    "build": "npm run build:store && npm run build:admin && npm run build:studio && node scripts/check-integrated-build.mjs",
+    "build:store": "tsc --noEmit && vite build",
+    "build:admin": "npm run build --workspace @hendy/admin-web",
+    "build:studio": "npm run build --workspace @hendy/studio-web",
+    "typecheck": "tsc --noEmit && npm run typecheck --workspace @hendy/admin-web && npm run typecheck --workspace @hendy/studio-web && npm run typecheck --workspace @hendy/core-utils && npm run typecheck --workspace @hendy/shared-types",
+    "preview": "vite preview --host 0.0.0.0",
+    "start": "node server.js",
+    "deploy": "wrangler deploy",
+    "test": "node --test test/*.test.mjs && npm run test --workspace @hendy/studio-web && npm run test --workspace @hendy/core-utils",
+    "check": "npm run typecheck && npm test && npm run build",
+    "db:init": "node scripts/init-db.mjs"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "@aws-sdk/client-s3": "^3.828.0",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.15.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.1",
+    "wrangler": "^4.42.0",
+    "@types/pg": "^8.15.5",
+    "concurrently": "^9.1.2"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "version": "1.1.0",
+  "apps": {
+    "storefront": {"source":"index.html","route":"/","output":"dist/index.html"},
+    "releaseAdmin": {"source":"admin.html","route":"/admin","output":"dist/admin.html"},
+    "studioWeb": {"source":"apps/studio-web","route":"/studio/","output":"dist/studio/index.html"},
+    "controlPlane": {"source":"apps/admin-web","route":"/control-plane/","output":"dist/control-plane/index.html"}
+  },
+  "api": {"base":"/api","health":"/api/health","releases":"/api/releases"}
+}

@@ -1,0 +1,37 @@
+databases:
+  - name: hendy-store-db
+    databaseName: hendy_store
+    user: hendy_store
+    plan: 0.1c-256mb
+    region: singapore
+
+services:
+  - type: web
+    name: hendy-server-app-store
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hendy-store-db
+          property: connectionString
+      - key: ADMIN_API_TOKEN
+        sync: false
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        sync: false
+      - key: R2_PUBLIC_BASE_URL
+        sync: false
+      - key: RELEASES_JSON
+        value: "[]"
