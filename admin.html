@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080d18">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Hendy Store private release administration">
+  <title>Hendy Store — Quản trị</title>
+</head>
+<body>
+  <div class="admin-shell">
+    <header class="topbar"><a class="brand" href="/" aria-label="Về cửa hàng"><span class="brand-mark">H</span><span>HENDY<span class="muted"> / ADMIN</span></span></a><nav><a href="/">Giao diện người dùng ↗</a></nav><span class="admin-private">PRIVATE CONSOLE</span></header>
+    <main class="admin-main">
+      <section class="admin-intro"><div class="eyebrow"><span class="pulse"></span> RELEASE OPERATIONS / PRIVATE</div><h1>Quản trị <span>phát hành.</span></h1><p class="hero-copy">Quản lý metadata, tải gói phần mềm lên R2 và kiểm soát những bản phát hành được hiển thị trên cửa hàng công khai.</p></section>
+      <section class="admin-panel standalone-admin">
+        <div class="section-heading"><div><div class="eyebrow">01 / AUTHENTICATION</div><h2>Phiên quản trị</h2></div><span class="section-note">Token chỉ lưu trong session của tab</span></div>
+        <form id="admin-login-form" class="admin-login"><label for="admin-token">Admin API token</label><div class="login-row"><input id="admin-token" type="password" autocomplete="current-password" required placeholder="Nhập token quản trị"><button class="button button-primary" type="submit">Kết nối</button><button id="admin-logout" class="button button-quiet" type="button" hidden>Thoát</button></div></form>
+        <div id="admin-message" class="admin-message" role="status" aria-live="polite"></div><div id="admin-summary" class="admin-summary"></div>
+        <div id="admin-workspace" hidden>
+          <form id="release-form" class="release-form">
+            <div class="form-heading"><div><div class="eyebrow">02 / RELEASE BUILDER</div><h3>Tạo bản phát hành</h3></div><span class="section-note">Upload tối đa 25 MiB / tệp</span></div>
+            <div class="form-grid">
+              <label>Tên ứng dụng<input name="name" required maxlength="120" value="Hendy Tools"></label>
+              <label>Phiên bản<input name="version" required maxlength="64" placeholder="2.0.0"></label>
+              <label>Nền tảng<select name="platform" required><option value="windows">Windows</option><option value="android">Android</option><option value="ios">iOS</option></select></label>
+              <label>Kênh<select name="channel" required><option value="stable">Stable</option><option value="beta">Beta</option><option value="preview">Preview</option></select></label>
+              <label>Build number<input name="build" type="number" min="0" step="1" value="0"></label>
+              <label>Trạng thái<select name="status"><option value="draft">Bản nháp</option><option value="published">Xuất bản công khai</option></select></label>
+              <label class="full-width">Tệp ứng dụng<input id="release-file" name="file" type="file" accept=".exe,.msi,.msix,.zip,.7z,.apk,.aab,.dmg,.pkg,.ipa,.appimage"></label>
+              <label class="full-width">Hoặc URL HTTPS của tệp<input name="downloadUrl" type="url" placeholder="https://downloads.example.com/app.exe"></label>
+              <label class="full-width">SHA-256<input name="sha256" inputmode="text" pattern="[a-fA-F0-9]{64}" maxlength="64" placeholder="64 ký tự hex — tự điền khi upload"></label>
+              <label>Dung lượng (byte)<input name="fileSize" type="number" min="0" step="1" value="0"></label>
+              <label class="checkbox-label"><input name="mandatory" type="checkbox"> Cập nhật bắt buộc</label>
+              <label class="full-width">Ghi chú phát hành<textarea name="releaseNotes" rows="3" maxlength="8000" placeholder="Điểm mới, sửa lỗi, lưu ý cập nhật..."></textarea></label>
+            </div>
+            <div class="form-actions"><button class="button button-primary" type="submit">Lưu bản phát hành ↗</button><span class="section-note">Chỉ release đã xuất bản mới hiển thị ở cửa hàng.</span></div>
+          </form>
+          <div class="release-list-heading"><h3>Danh sách release</h3><button id="admin-refresh" class="button button-quiet button-small" type="button">Tải lại ↻</button></div>
+          <div id="release-list" class="release-list"></div>
+        </div>
+      </section>
+      <section class="admin-security"><div class="eyebrow">SECURITY REMINDER</div><p>Không dùng token API Cloudflare làm token đăng nhập này. Hãy đặt một giá trị ADMIN_API_TOKEN riêng, dài và ngẫu nhiên trong secrets của môi trường chạy backend.</p></section>
+    </main>
+    <footer><a class="brand" href="/"><span class="brand-mark">H</span><span>HENDY<span class="muted"> / ADMIN</span></span></a><span>Private release console · <a href="/">Mở cửa hàng công khai ↗</a></span></footer>
+  </div>
+  <script type="module" src="/src/admin.ts"></script>
+</body></html>

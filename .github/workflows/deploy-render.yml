@@ -1,0 +1,22 @@
+name: Trigger Render Deploy
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["src/**", "index.html", "server.js", "package.json", "render.yaml"]
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check whether deploy hook is configured
+        id: hook
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: if [ -n "$DEPLOY_HOOK" ]; then echo "configured=true" >> "$GITHUB_OUTPUT"; else echo "configured=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Trigger Render deploy hook
+        if: steps.hook.outputs.configured == 'true'
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: curl --fail --silent --show-error --request POST "$DEPLOY_HOOK"
