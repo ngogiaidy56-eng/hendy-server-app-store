@@ -1,8 +1,7 @@
-# Canonical production Worker configuration used by the GitHub Actions deployment.
-# Keep the Worker name exactly "hendy-tool-releas" to retain its workers.dev URL.
+# Production Worker: Storefront, Admin and API share one Cloudflare Worker.
 name = "hendy-tool-releas"
 main = "./src/worker.ts"
-compatibility_date = "2026-10-23"
+compatibility_date = "2026-10-26"
 workers_dev = true
 
 [assets]
@@ -14,14 +13,15 @@ run_worker_first = ["/", "/api/*", "/health", "/healthz", "/admin*", "/studio*"]
 [vars]
 ENVIRONMENT = "production"
 APP_NAME = "Hendy Tools Platform & App Downloader"
-PUBLIC_BASE_URL = "https://hendytools.pages.dev"
+PUBLIC_BASE_URL = "https://hendy-tool-releas.ngogiaidy56.workers.dev"
 RELEASE_CHANNEL = "stable"
-CLOUDFLARE_PAGES_DOMAIN = "hendytools.pages.dev"
 R2_BUCKET_NAME = "hendy-tool-releases"
 
 [[r2_buckets]]
 binding = "RELEASES_BUCKET"
 bucket_name = "hendy-tool-releases"
 
+# Final deployments require these server-only secret bindings.
+# The GitHub Actions workflow creates a temporary secret file outside the repo.
 [secrets]
 required = ["CF_ACCESS_TEAM_DOMAIN", "CF_ACCESS_AUD", "CF_ACCESS_ADMIN_EMAILS"]

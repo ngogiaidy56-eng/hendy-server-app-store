@@ -1,104 +1,98 @@
 /**
- * Production deployment helpers. These values describe the checked-in architecture,
- * not proof that a Cloudflare account, custom domain, code signature, or security audit is configured.
+ * Cloudflare deployment metadata used by Admin tooling.
+ * Values describe intended configuration; they do not prove that the account is provisioned.
  */
 import type { CloudflareWorkersPagesConfig, SecurityAuditReport, DomainRouteSetting } from "../types/index.ts";
 
 export function getDefaultDeploymentConfig(): CloudflareWorkersPagesConfig {
+  const workerHost = "hendy-tool-releas.ngogiaidy56.workers.dev";
   const routes: DomainRouteSetting[] = [
     {
-      id: "route-admin", subdomain: "admin", domain: "configure-after-deploy",
-      targetView: "studio", purpose: "Giao diện Studio; mọi thao tác nhạy cảm được kiểm soát tại API backend",
-      dnsType: "CNAME", dnsTarget: "chưa cấu hình", status: "pending",
-      sslStatus: "provisioning", accessControl: "Internal Token Auth", apiManaged: false
+      id: "route-admin",
+      subdomain: "admin",
+      domain: workerHost + "/admin",
+      targetView: "studio",
+      purpose: "Giao diện Admin được bảo vệ bằng Cloudflare Access; API xác thực ở Worker",
+      dnsType: "CNAME",
+      dnsTarget: "workers.dev",
+      status: "pending",
+      sslStatus: "provisioning",
+      accessControl: "Internal Token Auth",
+      apiManaged: true,
     },
     {
-      id: "route-downloads", subdomain: "downloads", domain: "configure-after-deploy",
-      targetView: "downloads", purpose: "Cổng tải chỉ hiển thị artifact thuộc release đã xuất bản",
-      dnsType: "CNAME", dnsTarget: "chưa cấu hình", status: "pending",
-      sslStatus: "provisioning", accessControl: "Public Edge CDN", apiManaged: false
-    }
+      id: "route-downloads",
+      subdomain: "downloads",
+      domain: workerHost + "/api/v1/published-releases",
+      targetView: "downloads",
+      purpose: "Danh mục chỉ trả về artifact thực đã được xuất bản trong R2",
+      dnsType: "CNAME",
+      dnsTarget: "workers.dev",
+      status: "pending",
+      sslStatus: "provisioning",
+      accessControl: "Public Edge CDN",
+      apiManaged: true,
+    },
   ];
   return {
     accountName: "cấu hình trong Cloudflare Dashboard",
-    projectName: "hendy-server-app-downloader",
+    projectName: "hendy-tool-releas",
     pagesBranch: "main",
-    pagesDomain: "sẽ có sau khi tạo Pages project",
-    workersRoute: "chưa cấu hình — Pages Functions proxy /api/*",
-    r2Bucket: "hendy-server-app-artifacts",
-    kvNamespace: "không dùng — metadata lưu trong PostgreSQL",
-    githubRepoUrl: "https://github.com/hendyngo-servers/hendy-server-app-downloader",
+    pagesDomain: "không sử dụng; giao diện được phục vụ bởi Worker Static Assets",
+    workersRoute: "https://" + workerHost + " (giao diện và API dùng chung Worker)",
+    r2Bucket: "hendy-tool-releases",
+    kvNamespace: "không sử dụng; artifact metadata đọc từ R2",
+    githubRepoUrl: "https://github.com/ngogiaidy56-eng/hendy-server-app-store",
     apiEndpoint: "/api/v1/domains",
     apiKeyProtected: true,
-    routes
+    routes,
   };
 }
 
 export function getSecurityAuditReport(): SecurityAuditReport {
   return {
-    sourceCodeExposureRisk: "Chưa được đo bằng kiểm thử bảo mật độc lập",
-    sourceEncryption: "Không tuyên bố mã hóa source trong ứng dụng; bí mật phải lưu tại secret store",
-    interfaceIsolation: "UI Studio và trang tải dùng chế độ hiển thị riêng; quyền thực thi được kiểm tra ở API",
-    binaryStripping: "Chưa thực hiện trong web build; chỉ áp dụng nếu quy trình native build hỗ trợ",
-    apiGatewayProtection: "Bearer session, token hash trong DB, hết hạn phiên và giới hạn tốc độ đăng nhập",
-    distributionStorage: "Cloudflare R2 private bucket + PostgreSQL (cần cấu hình đúng trên tài khoản)"
+    sourceCodeExposureRisk: "Cần chạy SAST và rà soát thủ công trước mỗi bản production",
+    sourceEncryption: "Frontend build có thể tải xuống từ trình duyệt; không lưu bí mật trong bundle",
+    interfaceIsolation: "Store và Admin có HTML entrypoint riêng; quyền Admin được xác minh bằng Cloudflare Access và Worker API",
+    binaryStripping: "Không áp dụng tự động cho web bundle; native artifact cần pipeline riêng",
+    apiGatewayProtection: "Signed Cloudflare Access JWT, issuer/audience/expiry/email allow-list và publisher token phía server",
+    distributionStorage: "Cloudflare R2 bucket hendy-tool-releases; chỉ coi artifact sẵn sàng khi object thật tồn tại",
   };
 }
 
 function safeToml(value: string): string {
-  return String(value || "").replace(/["\r\n]/g, "").slice(0, 120);
+  return String(value || "").replace(/["\r\n]/g, "").slice(0, 160);
 }
 
-/** wrangler.toml configures Pages output and deliberately includes no fake resource IDs. */
+/** Produces a Cloudflare Worker configuration with Static Assets and R2. */
 export function generateWranglerConfig(config: CloudflareWorkersPagesConfig): string {
+  const workerName = safeToml(config.projectName || "hendy-tool-releas");
+  const bucket = safeToml(config.r2Bucket || "hendy-tool-releases");
   return [
-    "# Cloudflare Pages + Pages Functions. API metadata and binaries remain on Render/PostgreSQL/R2.",
-    'name = "' + safeToml(config.projectName || "hendy-server-app-downloader") + '"',
-    'compatibility_date = "2026-10-23"',
-    'pages_build_output_dir = "./dist"',
-    ""
+    "# Cloudflare Worker with Static Assets and R2",
+    'name = "' + workerName + '"',
+    'main = "./src/worker.ts"',
+    'compatibility_date = "2026-10-26"',
+    "workers_dev = true",
+    "",
+    "[assets]",
+    'directory = "./.worker-dist"',
+    'binding = "ASSETS"',
+    'not_found_handling = "single-page-application"',
+    "",
+    "[[r2_buckets]]",
+    'binding = "RELEASES_BUCKET"',
+    'bucket_name = "' + bucket + '"',
+    "",
   ].join("\n");
 }
 
-/** Emits the same gateway pattern as functions/api/[[path]].ts. API authorization stays at origin. */
-export function generatePagesFunctionsRoute(): string {
+/** Produces a minimal Worker-only GitHub Actions workflow. */
+export function generateGitHubWorkflowYaml(_config: CloudflareWorkersPagesConfig): string {
   return [
-    "/** Pages Functions gateway; set BACKEND_ORIGIN in Pages environment variables. */",
-    "interface Env { BACKEND_ORIGIN?: string; }",
-    "interface Context { request: Request; env: Env; }",
-    "export async function onRequest(context: Context): Promise<Response> {",
-    "  const origin = context.env.BACKEND_ORIGIN;",
-    "  if (!origin) return Response.json({ error: 'BACKEND_ORIGIN is not configured' }, { status: 503 });",
-    "  let backend: URL;",
-    "  try {",
-    "    backend = new URL(origin);",
-    "    if (backend.protocol !== 'https:' && backend.hostname !== 'localhost' && backend.hostname !== '127.0.0.1') throw new Error('HTTPS required');",
-    "  } catch { return Response.json({ error: 'Invalid BACKEND_ORIGIN' }, { status: 500 }); }",
-    "  const incoming = new URL(context.request.url);",
-    "  const target = new URL(backend.toString());",
-    "  target.pathname = incoming.pathname;",
-    "  target.search = incoming.search;",
-    "  try {",
-    "    const response = await fetch(new Request(target.toString(), context.request));",
-    "    const headers = new Headers(response.headers);",
-    "    headers.set('Cache-Control', 'no-store');",
-    "    headers.set('X-Content-Type-Options', 'nosniff');",
-    "    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });",
-    "  } catch { return Response.json({ error: 'Backend unavailable' }, { status: 502 }); }",
-    "}",
-    ""
-  ].join("\n");
-}
-
-export function generateGitHubWorkflowYaml(config: CloudflareWorkersPagesConfig): string {
-  const project = safeToml(config.projectName || "hendy-server-app-downloader");
-  const branch = safeToml(config.pagesBranch || "main");
-  return [
-    "name: Validate and deploy Hendy Server App Downloader",
+    "name: Deploy Hendy App Store to Cloudflare Worker",
     "",
     "on:",
-    "  pull_request:",
-    "    branches: [main]",
     "  push:",
     "    branches: [main]",
     "  workflow_dispatch:",
@@ -107,36 +101,19 @@ export function generateGitHubWorkflowYaml(config: CloudflareWorkersPagesConfig)
     "  contents: read",
     "",
     "jobs:",
-    "  build-and-check:",
+    "  deploy:",
     "    runs-on: ubuntu-latest",
     "    steps:",
     "      - uses: actions/checkout@v4",
     "      - uses: actions/setup-node@v4",
     "        with:",
-    "          node-version: 22",
+    '          node-version: "22"',
     "      - run: npm install",
     "      - run: npm run lint",
+    "      - run: npm test",
     "      - run: npm run build",
+    "      - run: npx --yes wrangler@4 deploy --config=wrangler.toml",
     "",
-    "  deploy-cloudflare-pages:",
-    "    if: github.event_name == 'push' && github.ref == 'refs/heads/" + branch + "'",
-    "    needs: build-and-check",
-    "    runs-on: ubuntu-latest",
-    "    steps:",
-    "      - uses: actions/checkout@v4",
-    "      - uses: actions/setup-node@v4",
-    "        with:",
-    "          node-version: 22",
-    "      - run: npm install",
-    "      - run: npm run build",
-    "      - uses: cloudflare/wrangler-action@v3",
-    "        with:",
-    "          apiToken: \${{ secrets.CLOUDFLARE_API_TOKEN }}",
-    "          accountId: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
-    "          command: pages deploy dist --project-name=" + project + " --branch=" + branch,
-    "",
-    "# Configure Render Auto-Deploy separately. Keep DATABASE_URL, ADMIN_PASSWORD and R2 keys in Render secrets.",
-    ""
   ].join("\n");
 }
 
@@ -151,70 +128,62 @@ export interface DirectoryNode {
 
 export function getWorkersPagesDirectoryTree(): DirectoryNode {
   return {
-    name: "hendy-server-app-downloader",
+    name: "hendy-server-app-store",
     type: "directory",
     path: "/",
     children: [
       {
-        name: ".github", type: "directory", path: "/.github", children: [
-          {
-            name: "workflows", type: "directory", path: "/.github/workflows", children: [
-              { name: "ci-deploy.yml", type: "file", path: "/.github/workflows/ci-deploy.yml", description: "Type-check, build và deploy Pages sau push main" }
-            ]
-          }
-        ]
+        name: ".github",
+        type: "directory",
+        path: "/.github",
+        children: [{
+          name: "workflows",
+          type: "directory",
+          path: "/.github/workflows",
+          children: [
+            { name: "ci-deploy.yml", type: "file", path: "/.github/workflows/ci-deploy.yml", description: "Type-check, test and build" },
+            { name: "deploy-cloudflare.yml", type: "file", path: "/.github/workflows/deploy-cloudflare.yml", description: "Production Worker deploy and smoke tests" },
+          ],
+        }],
       },
-      {
-        name: "functions", type: "directory", path: "/functions", children: [
-          {
-            name: "api", type: "directory", path: "/functions/api", children: [
-              { name: "[[path]].ts", type: "file", path: "/functions/api/[[path]].ts", description: "Proxy /api/* đến backend Render qua BACKEND_ORIGIN" }
-            ]
-          }
-        ]
-      },
-      { name: "migrations", type: "directory", path: "/migrations", children: [
-        { name: "0001_init.sql", type: "file", path: "/migrations/0001_init.sql", description: "Schema PostgreSQL cho metadata, phiên đăng nhập và audit" }
-      ] },
-      { name: "server.ts", type: "file", path: "/server.ts", description: "Express API chạy trên Render Node runtime" },
-      { name: "render.yaml", type: "file", path: "/render.yaml", description: "Render Web Service Blueprint, bí mật nhập qua Dashboard" },
-      { name: "wrangler.toml", type: "file", path: "/wrangler.toml", description: "Cấu hình Cloudflare Pages; không chứa resource ID giả hoặc secret" },
-      { name: "src/App.tsx", type: "file", path: "/src/App.tsx", description: "Giao diện Studio và cổng tải phần mềm" },
-      { name: "README.md", type: "file", path: "/README.md", description: "Tài liệu thiết lập môi trường và triển khai" }
-    ]
+      { name: "src/worker.ts", type: "file", path: "/src/worker.ts", description: "Worker router, API and R2 delivery" },
+      { name: "src/main.tsx", type: "file", path: "/src/main.tsx", description: "Storefront React entrypoint" },
+      { name: "src/admin-main.tsx", type: "file", path: "/src/admin-main.tsx", description: "Admin React entrypoint" },
+      { name: "wrangler.toml", type: "file", path: "/wrangler.toml", description: "Production Worker configuration" },
+      { name: "wrangler.bootstrap.toml", type: "file", path: "/wrangler.bootstrap.toml", description: "First deployment before Access secrets are available" },
+      { name: "scripts", type: "directory", path: "/scripts", description: "Build, provisioning and smoke-test scripts" },
+      { name: "README.md", type: "file", path: "/README.md", description: "Cloudflare deployment runbook" },
+    ],
   };
 }
 
 export function generateSystemArchitectureMarkdown(config: CloudflareWorkersPagesConfig): string {
   return [
-    "# Hendy Server App Downloader — kiến trúc triển khai",
+    "# Hendy Server App Store — Cloudflare Worker architecture",
     "",
     "~~~text",
-    "Người dùng / Quản trị viên",
-    "          | HTTPS",
-    "          v",
-    "Cloudflare Pages (React/Vite static UI)",
-    "          | Pages Functions proxy /api/*",
-    "          v",
-    "Render Free — Express API / Node.js",
-    "        |                    |",
-    "        v                    v",
-    "PostgreSQL metadata      Cloudflare R2 private bucket",
-    "        |                    |",
-    "        +---- artifact metadata / signed downloads ----+",
+    "Browser",
+    "  | HTTPS",
+    "  v",
+    "Cloudflare Worker + Static Assets",
+    "  |-- Storefront HTML/JS/CSS",
+    "  |-- Admin HTML protected by Cloudflare Access",
+    "  |-- API routes and token validation",
+    "  |-- R2 binding RELEASES_BUCKET",
+    "  +-- R2 artifacts and published release metadata",
     "~~~",
     "",
-    "## Cấu hình hiện tại",
-    "- Repository: " + config.githubRepoUrl,
-    "- Pages project: " + config.projectName + " (branch " + config.pagesBranch + ")",
-    "- Metadata: PostgreSQL; binaries: private R2 bucket " + config.r2Bucket,
-    "- API: " + config.apiEndpoint + "; Pages gateway requires BACKEND_ORIGIN",
+    "## Runtime configuration",
+    "- Worker: " + config.projectName,
+    "- Public URL: " + config.workersRoute,
+    "- R2 bucket: " + config.r2Bucket,
+    "- API: " + config.apiEndpoint,
+    "- Source: " + config.githubRepoUrl,
     "",
-    "## Bảo mật và giới hạn",
-    "- API admin kiểm tra phiên Bearer ở backend; ẩn tab frontend không phải biện pháp bảo vệ.",
-    "- Artifact chỉ được công khai khi release đã xuất bản và có tệp thật lưu trong kho.",
-    "- SHA-256 xác minh tính toàn vẹn byte; không chứng minh nhà phát hành đã ký mã nhị phân.",
-    "- Domain/TLS, R2 CORS, database backup và secrets phải được xác thực trong tài khoản thực; tài liệu này không khẳng định chúng đã được tạo.",
-    ""
+    "## Production notes",
+    "- This is the intended architecture, not proof of a live deployment.",
+    "- Keep private values in Cloudflare Worker secrets or GitHub Actions secrets.",
+    "- Do not mark a release available until the actual artifact is present in R2.",
+    "",
   ].join("\n");
 }

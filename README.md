@@ -1,119 +1,239 @@
-# Hendy Tools Platform & App Downloader
+# Hendy Server App Store — Cloudflare Edition
 
-Hendy Tools is a React 19 + Vite single-page app. The primary production target is a Cloudflare Worker that serves both the compiled frontend and the edge API.
+Hendy Server App Store triển khai trực tiếp trên **Cloudflare Workers + Static Assets + R2**. Frontend Store, giao diện Admin và API chạy qua cùng một Cloudflare Worker; các gói phát hành được lưu trong R2. Repository không cần máy chủ Node.js riêng.
 
-## Primary application URL
+- Repository: https://github.com/ngogiaidy56-eng/hendy-server-app-store
+- Worker URL mặc định: https://hendy-tool-releas.ngogiaidy56.workers.dev/
+- Store: `/`
+- Admin: `/admin` (được bảo vệ bởi Cloudflare Access)
+- Cấu hình production: [wrangler.toml](./wrangler.toml)
+- CI/CD production: [deploy-cloudflare.yml](./.github/workflows/deploy-cloudflare.yml)
 
-**https://hendy-tool-releas.ngogiaidy56.workers.dev/**
+> URL workers.dev phụ thuộc subdomain tài khoản Cloudflare. Nếu tài khoản của bạn dùng hostname khác, cập nhật `PUBLIC_BASE_URL`, `WORKER_HOST` và `APP_BASE_URL` trong cấu hình trước khi deploy. Chỉ coi triển khai thành công khi GitHub Actions và kiểm tra HTTP thực tế đều hoàn tất.
 
-Useful checks after successful deployment:
+## 1. Kiến trúc
 
-- UI: `/`
-- Health: `/healthz`
-- API metadata: `/api/v1/meta`
-- Release catalog: `/api/v1/releases`
-- Update check: `/api/v1/update-check?platform=windows&clientBuild=0`
-- Release manifest: `/api/v1/public/manifest.json`
-- Domain overview: `/api/v1/domains`
-- Edge telemetry: `/api/v1/telemetry`
+```text
+Browser / Admin
+      | HTTPS
+      v
+Cloudflare Worker: hendy-tool-releas
+      |
+      +-- Static Assets (.worker-dist/)
+      |     +-- index.html       Store
+      |     +-- admin.html       Admin entry point
+      |     +-- assets/*         Vite bundles
+      |
+      +-- src/worker.ts          API, Access checks, release manifest
+      |
+      +-- RELEASES_BUCKET binding
+             +-- windows/3.2.0/...
+             +-- android/3.2.0/...
+             +-- published/<app>/<version>/<filename>
+```
 
-## GitHub Actions deployment to Cloudflare Workers & Pages
+- **Vite + React 19** build hai HTML entrypoint riêng.
+- **Cloudflare Workers Static Assets** phục vụ giao diện và chuyển request API/quản trị qua Worker.
+- **Cloudflare R2** lưu artifact. Metadata mẫu trong source không có nghĩa là file đã phát hành; API chỉ đánh dấu artifact có sẵn khi file thật tồn tại trong R2.
+- **Cloudflare Access** xác thực Admin bằng email One-time PIN; Worker xác minh JWT, issuer, audience, hạn sử dụng và allow-list email ở phía server.
+- **GitHub Actions** kiểm tra TypeScript/test/build, tạo R2 bucket nếu thiếu, deploy Worker, provision Access và smoke-test endpoint.
 
-The GitHub Actions workflow `.github/workflows/deploy-cloudflare.yml` is the production deployment path. It validates the source, builds both independent HTML applications, creates missing Cloudflare resources, provisions Access login, pushes runtime secrets to the Worker, deploys the storefront-only Pages build, and runs live smoke tests.
+## 2. Điều kiện cần
 
-### One-time GitHub configuration
+1. Repository này trên GitHub với Actions được bật.
+2. Tài khoản Cloudflare có Workers, R2 và Cloudflare Zero Trust/Access.
+3. Node.js 22 trở lên để chạy local.
+4. Cloudflare API Token có đúng phạm vi quyền.
+5. Email thật của các quản trị viên được phép đăng nhập.
 
-In **GitHub → Settings → Secrets and variables → Actions**, add:
+Mở Cloudflare Zero Trust Dashboard và hoàn tất onboarding nếu tài khoản yêu cầu. Lấy Account ID tại Cloudflare Dashboard → Overview của tài khoản.
 
-| Name | Type | Purpose |
+## 3. Tạo Cloudflare API Token
+
+Cloudflare Dashboard → **My Profile → API Tokens → Create Token**. Tạo token giới hạn theo account cần triển khai, với quyền tối thiểu:
+
+- **Workers Scripts: Edit** — deploy Worker.
+- **R2 Storage: Edit** — tạo/kiểm tra bucket.
+- **Access: Apps and Policies: Edit** — tạo Access app cho route quản trị.
+- **Access: Organizations: Edit** — đọc/tạo Zero Trust organization.
+- **Access: Identity Providers: Edit** — cấu hình email One-time PIN.
+
+Tên nhóm quyền có thể hiển thị hơi khác tùy giao diện Cloudflare. Token cần được cấp cho đúng account. Tránh dùng Global API Key nếu có thể dùng token giới hạn.
+
+Trong GitHub vào **Settings → Secrets and variables → Actions** và cấu hình:
+
+| Tên | Loại | Giá trị |
 |---|---|---|
-| `CLOUDFLARE_API_TOKEN` | Secret | Scoped API token used by Wrangler and the provisioner |
-| `CLOUDFLARE_ACCOUNT_ID` | Variable or Secret | 32-character Cloudflare Account ID |
-| `CF_ACCESS_ADMIN_EMAILS` | Variable or Secret | Real admin email addresses, comma-separated |
-| `RELEASE_PUBLISH_TOKEN` | Optional Secret | Stable CI publishing token; automatically generated if omitted |
+| `CLOUDFLARE_API_TOKEN` | Repository secret | API Token vừa tạo |
+| `CLOUDFLARE_ACCOUNT_ID` | Repository variable hoặc secret | Account ID 32 ký tự hex |
+| `CF_ACCESS_ADMIN_EMAILS` | Repository variable hoặc secret | Email Admin thật; nhiều email phân cách bằng dấu phẩy |
+| `RELEASE_PUBLISH_TOKEN` | Repository secret, tùy chọn | Token dùng riêng cho publish từ CI; nếu bỏ trống pipeline tự sinh |
 
-The Cloudflare API token needs access to **Workers Scripts**, **R2 Storage**, **Pages**, **Access Applications/Policies**, and **Access Organizations/Identity Providers/Groups**. Use least-privilege permissions appropriate for creating/updating these resources. Do not paste API tokens into chat, commit them to Git, or expose them as Vite `VITE_*` variables.
+Ví dụ định dạng email: `admin@example.com,ops@example.com`. Hãy thay bằng email thật bạn kiểm soát. Không ghi API token, publisher token hoặc mật khẩu vào source code, README hay biến `VITE_*`.
 
-### What deployment provisions
+## 4. Triển khai production bằng GitHub Actions (khuyến nghị)
 
-On each matching push to `main` (or manual **Run workflow**), the deployment workflow:
+### Bước 1 — kiểm tra cấu hình
 
-1. Installs dependencies and runs TypeScript checks, Worker/Access tests, Pages gateway tests, Vite production build and build-artifact assertions.
-2. Creates R2 bucket `hendy-tool-releases` and Pages project `hendy-tool-releas` if absent. Existing Pages production/preview environment variables are merged rather than replaced.
-3. Creates/reuses a Cloudflare Zero Trust organization and an email one-time-PIN identity provider. It creates or updates Access applications for `/admin*`, `/studio*`, `/admin.html` and `/api/v1/admin/*`, with policies restricted to `CF_ACCESS_ADMIN_EMAILS`.
-4. Bootstraps Worker assets, provisions runtime identity, generates a temporary secrets file **outside the repository**, and deploys the final Worker. Cloudflare secret values are masked and never printed into logs.
-5. Deploys only `dist/index.html` and public assets to Pages; `dist/admin.html` is removed before the Pages upload. Pages public API paths proxy to the primary Worker. Admin API paths at the separate Pages origin are explicitly denied.
-6. Runs post-deploy smoke tests against the Worker health/readiness endpoints and Pages proxy. The workflow fails if the required runtime bindings are missing or the Admin route remains in setup-error state.
+Trong `wrangler.toml` xác nhận:
 
-Non-secret runtime variables such as `ENVIRONMENT`, `APP_NAME`, `PUBLIC_BASE_URL` and Pages `BACKEND_ORIGIN` are declared in Wrangler/Pages configuration and reconciled by the provisioning script. Required Worker secret names are declared in `wrangler.toml`. The Access issuer, application audience tags and allow-list are linked into the Worker at deploy time. The CI publisher token is separate from interactive Admin login; the Admin API can authenticate through Access even when no repository publisher token exists.
+- `name = "hendy-tool-releas"`
+- `main = "./src/worker.ts"`
+- `assets.directory = "./.worker-dist"`
+- R2 binding `RELEASES_BUCKET` trỏ tới `hendy-tool-releases`
 
-**Use a single deployment controller.** If this Worker is already connected to Cloudflare **Workers Builds → Git integration**, disable its automatic production deploy after enabling the GitHub Actions workflow. Running both pipelines against the same Worker can cause deploy races and mismatched runtime secrets. The GitHub Actions workflow is now intended to own production deploys.
+Nếu đổi tên Worker/bucket, cập nhật đồng bộ `wrangler.toml`, `wrangler.bootstrap.toml`, workflow, script Access và smoke test trước khi deploy.
 
-Useful links:
+### Bước 2 — chạy pipeline
 
-- [GitHub deployment workflow](.github/workflows/deploy-cloudflare.yml)
-- [Verify workflow](.github/workflows/verify-store-admin.yml)
-- [Build and publish web release](.github/workflows/build-and-publish-release.yml)
-- [Cloudflare Workers CI/CD documentation](https://developers.cloudflare.com/workers/ci-cd/)
-- [Cloudflare Access application paths](https://developers.cloudflare.com/cloudflare-one/access-controls/policies/app-paths/)
-- [Cloudflare Worker secrets](https://developers.cloudflare.com/workers/configuration/secrets/)
+1. Push commit lên nhánh `main`, hoặc mở GitHub → **Actions** → **Deploy Hendy App Store to Cloudflare Worker** → **Run workflow**.
+2. Pipeline cài dependencies, chạy `npm run lint`, `npm test`, build Vite và xác nhận cả Store/Admin HTML.
+3. Script đảm bảo bucket R2 tồn tại.
+4. Pipeline triển khai Worker bootstrap.
+5. Script tạo/cập nhật Cloudflare Access và email One-time PIN cho các đường dẫn Admin; secrets được viết vào file tạm bên ngoài source.
+6. Pipeline deploy Worker production với secrets đã liên kết, sau đó chạy smoke test.
+7. Chỉ coi quá trình thành công khi cả job GitHub Actions kết thúc **Success** và các URL dưới đây trả về đúng nội dung.
 
-## Repository deployment files
+Pipeline GitHub Actions là controller production. Nếu bạn đã bật Workers Builds/Git integration cho cùng Worker, hãy tắt pipeline deploy tự động đó để tránh hai luồng ghi đè deployment.
 
-- `src/worker.ts`: Worker request router for the frontend, health checks, API metadata, release listing, update checks, manifests and R2 artifact delivery.
-- `wrangler.toml`: **canonical production Worker configuration** for the GitHub Actions deployment. This is the file used by `npm run deploy:worker`; Worker assets are read from `.worker-dist/`.
-- `scripts/prepare-worker-assets.mjs`: prepares `.worker-dist/` from `dist/` and removes only the Pages `_redirects` catch-all rewrite, which Cloudflare Workers rejects as a redirect loop. The original `dist/` remains unchanged for Pages deployment.
-- `wrangler.worker.toml`: compatibility copy of the Worker config for older manual commands. It also points to `.worker-dist/`; prefer the root `wrangler.toml` for Workers Builds.
-- `wrangler.pages.toml`: reference settings for the optional separate Pages project. Pages project runtime variables should be set in that project's Dashboard when using Direct Upload.
-- `functions/api/[[path]].ts`: optional Pages Functions API gateway. Set `BACKEND_ORIGIN=https://hendy-tool-releas.ngogiaidy56.workers.dev` in the Pages project's production environment if API paths should proxy to the Worker.
-- `server.ts`: optional Express server for Node/Render. Cloudflare Workers does not run this file.
-- `.github/workflows/deploy-cloudflare.yml`: GitHub Actions source of truth for runtime provisioning, Worker + Pages deployment and post-deploy smoke tests. It keeps Admin HTML on the Worker and the Pages deployment storefront-only.
-- `scripts/provision-cloudflare-resources.mjs`: idempotently creates R2/Pages resources and links runtime variables without overwriting unrelated existing settings.
-- `scripts/provision-cloudflare-access.mjs`: creates/reuses the Zero Trust organization, email OTP provider, path-specific Access applications and a temporary Worker secrets file. Values are never committed or printed.
-- `scripts/smoke-test-cloudflare.mjs`: verifies live Worker readiness, R2 binding, Admin setup status and Pages proxy behavior after deploy.
-- `wrangler.bootstrap.toml`: temporary first-deploy configuration without required-secret assertions. Normal production deployments use `wrangler.toml`, which declares required Access secrets.
+### Bước 3 — xác minh URL
 
-## Local validation / manual deployment
+Thay hostname ví dụ bằng Worker URL thực tế của bạn:
 
-Requires Node.js 22+. The `public/_redirects` rule is retained in `dist/` for Pages. Worker deployment creates a separate `.worker-dist/` without that Pages-only file, while Wrangler's `not_found_handling = "single-page-application"` provides Worker-side SPA fallback.
+| URL | Kết quả kỳ vọng |
+|---|---|
+| `/` | Giao diện Store |
+| `/admin` | Đăng nhập/chuyển hướng Cloudflare Access; không mở Admin công khai |
+| `/healthz` | JSON có `status: "healthy"` |
+| `/api/v1/meta` | Metadata dịch vụ và API |
+| `/api/v1/runtime/readiness` | Trạng thái binding, không tiết lộ giá trị secret |
+| `/api/v1/releases` | Catalogue cố định; file chưa có trong R2 phải unavailable |
+| `/api/v1/published-releases` | Artifact đã publish thực sự trong R2 |
+| `/api/v1/public/manifest.json` | Manifest phát hành và checksum nếu có |
+
+## 5. Triển khai thủ công từ máy local
+
+Dùng Bash hoặc Git Bash cho các lệnh dưới đây.
+
+### Bước 1 — cài đặt và kiểm tra
 
 ```bash
+git clone https://github.com/ngogiaidy56-eng/hendy-server-app-store.git
+cd hendy-server-app-store
 npm install
 npm run lint
 npm test
 npm run build
-
-# Deploy the primary Worker + UI + API:
-npm run deploy:worker
-
-# Check a previously configured Worker + Pages deployment:
-npm run smoke:cloudflare
+node scripts/verify-store-admin-build.mjs
 ```
 
-For local manual Worker deployment, authenticate with `npx wrangler@4 login` and run the resource/Access provisioning scripts before using the production `wrangler.toml`; required Access secrets must be present. Never commit generated `.runtime` or secrets files.
+Lệnh build tạo `dist/` và chuẩn bị `.worker-dist/`. Chỉnh sửa source trong `src/`, không chỉnh thủ công file build.
 
-## Two separate interfaces and packaging/publishing
+### Bước 2 — xác thực Cloudflare
 
-- **Storefront (public):** `/` lists only artifacts returned by the public R2 release catalog. It uses `index.html`, `src/main.tsx`, `src/App.tsx`, and `src/store.css`.
-- **Admin / Developer Console (private):** `/admin` is a separately compiled application using `admin.html`, `src/admin-main.tsx`, `src/interface/admin/StudioWorkspace.tsx`, and `src/admin.css`. It has its own HTML entrypoint, React root, styling bundle and browser navigation; it does not switch views inside the storefront SPA.
-- The Worker serves the dedicated Admin document only after validating a signed Cloudflare Access JWT. The GitHub provisioner creates the Access organization and path policies for the configured email allow-list; missing credentials still fail closed. Four application audience values are accepted and checked after signature/issuer/expiry verification. The Admin status API and admin manifest are also guarded.
-- The console provides source ZIP import, SemVer metadata, browser ZIP packaging, SHA-256 calculation, artifact upload, release history, storefront branding/content controls and configuration status. It shows whether secrets are configured, never their values.
-- Studio packaging produces a **source bundle ZIP**, `release-manifest.json`, and `checksums.sha256`; GitHub Actions can also build and package the actual web application into a distribution ZIP. Neither path pretends to compile native EXE/APK/IPA files or create code signatures. Native packages must be built and signed on an appropriate platform runner, then uploaded as artifacts.
-- `RELEASE_PUBLISH_TOKEN` is a server-side Cloudflare Worker secret and is never sent to the browser. The deployment workflow generates it if the optional GitHub secret is absent. When manually publishing a web release, the publish workflow also synchronizes the chosen token to the Worker before making the API request.
-- The GitHub runtime provisioner automatically generates/links `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD` (one audience per protected path) and `CF_ACCESS_ADMIN_EMAILS`, and uploads them as Worker secrets. The Access policy is restricted to the real emails supplied in GitHub Actions configuration. The Worker verifies the signed JWT issuer, one of the provisioned audiences, expiry, signature and email allow-list. Missing runtime configuration returns `503`, missing credentials return `401`, and an authenticated but unauthorized email returns `403`. See [Cloudflare JWT validation docs](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/).
-- The direct upload endpoint currently accepts files up to 25 MB; larger binaries need a presigned/multipart upload service. Do not place `RELEASE_PUBLISH_TOKEN` in the repository, frontend bundle, or browser storage.
+```bash
+npx wrangler@4 login
+npx wrangler@4 whoami
+export CLOUDFLARE_ACCOUNT_ID="YOUR_32_CHARACTER_ACCOUNT_ID"
+export CLOUDFLARE_API_TOKEN="YOUR_SCOPED_API_TOKEN"
+export CF_ACCESS_ADMIN_EMAILS="your-real-admin@example.com"
+export CLOUDFLARE_WORKER_NAME="hendy-tool-releas"
+export WORKER_HOST="hendy-tool-releas.ngogiaidy56.workers.dev"
+```
 
-## Build and publish a real web release
+Thay các giá trị ví dụ bằng thông tin của tài khoản. Không commit biến môi trường hay file chứa secrets.
 
-Open GitHub Actions → **Build and publish Hendy web release** (`.github/workflows/build-and-publish-release.yml`) and enter a SemVer version and release notes. The workflow builds the production web app, packages actual `dist/` files into a ZIP with per-file SHA-256 manifest, and uploads the ZIP as an Actions artifact. Enable `publish_to_store` to upload it to the Worker API. Before publishing it generates a temporary token if necessary and synchronizes it to the Worker Secret via Wrangler; the token is never embedded in the UI. The direct upload API limit is 25 MB.
+### Bước 3 — tạo R2 và bootstrap Worker
 
-Interactive admins authenticate through the path-specific Cloudflare Access applications created by GitHub Actions. The provisioner configures the email one-time-PIN login method and a strict allow-list. The Worker re-verifies the JWT issuer, path-specific audience, expiry, signature and email allow-list, so access never depends on a client-side route check. CI publishes server-to-server through a separately scoped publisher secret; neither UI receives it.
+```bash
+node scripts/provision-cloudflare-resources.mjs
+npx wrangler@4 deploy --config=wrangler.bootstrap.toml
+```
 
-## Release artifacts
+### Bước 4 — provision Access và deploy production
 
-The API intentionally reports release packages as unavailable until the real binary exists in R2. This repository does not contain proven signed production Windows installers or Android APKs. Upload a real artifact to the configured object key before advertising it as downloadable:
+```bash
+mkdir -p .runtime
+node scripts/provision-cloudflare-access.mjs --output .runtime/worker-secrets.json
+npx wrangler@4 deploy --config=wrangler.toml --secrets-file .runtime/worker-secrets.json
+rm -f .runtime/worker-secrets.json
+```
 
-- `windows/3.2.0/HendyToolsPro-3.2.0-Setup.exe`
-- `android/3.2.0/HendyToolsMobile-3.2.0.apk`
+File secrets tạm nằm trong thư mục bị Git ignore. Không in nội dung file ra terminal, không commit file đó và xóa sau khi triển khai.
 
-The manifest reports a checksum as verified only when a valid 64-character SHA-256 value is present in the object's R2 custom metadata under `sha256`. Build, sign, calculate the checksum, and upload the actual packages before release.
+### Bước 5 — kiểm tra deployment
+
+```bash
+APP_BASE_URL="https://hendy-tool-releas.ngogiaidy56.workers.dev" npm run smoke:cloudflare
+```
+
+Nếu hostname Worker khác, cập nhật `WORKER_HOST` trước khi provision Access và đặt `APP_BASE_URL` chính xác khi smoke test. Không coi một hostname ví dụ là bằng chứng deployment đã chạy.
+
+## 6. Phát hành artifact thật vào R2
+
+Mã nguồn chứa catalogue ví dụ như `windows/3.2.0/HendyToolsPro-3.2.0-Setup.exe` và `android/3.2.0/HendyToolsMobile-3.2.0.apk`. Những entry này **không phải** file cài đặt đã được phát hành.
+
+Artifact do Admin/CI publish được lưu theo key:
+
+`published/<appSlug>/<version>/<filename>`
+
+Danh mục chỉ đánh dấu file khả dụng khi object tương ứng thật sự tồn tại trong R2. Chỉ upload binary bạn đã build và kiểm tra. SHA-256 giúp xác minh tính toàn vẹn, nhưng không tự chứng minh danh tính nhà phát hành.
+
+Workflow **Build and publish Hendy web release** có thể đóng gói website thành ZIP và lưu như GitHub Actions artifact. Nếu chọn publish, workflow gửi gói qua `/api/v1/ci/publish` với publisher token chỉ dùng phía CI/server. Endpoint upload trực tiếp giới hạn 25 MB; file lớn cần quy trình upload phù hợp qua R2.
+
+## 7. API endpoints
+
+| Endpoint | Mục đích |
+|---|---|
+| `GET /healthz` | Liveness check |
+| `GET /api/v1/meta` | Metadata dịch vụ |
+| `GET /api/v1/releases` | Catalogue phát hành |
+| `GET /api/v1/published-releases` | Release thực có trong R2 |
+| `GET /api/v1/public/manifest.json` | Manifest công khai |
+| `GET /api/v1/runtime/readiness` | Kiểm tra binding/secrets không tiết lộ giá trị |
+| `POST /api/v1/ci/publish` | CI publisher; cần Bearer token |
+| `POST /api/v1/admin/publish` | Admin publish; yêu cầu Cloudflare Access |
+
+Health check không chứng minh rằng artifact đã upload hoặc custom domain đã cấu hình. Kiểm tra từng phần riêng.
+
+## 8. Các tệp mã nguồn quan trọng
+
+- `src/worker.ts` — Worker router, API, xác thực Access, release catalogue và R2 delivery.
+- `src/main.tsx`, `src/App.tsx`, `src/interface/store/` — giao diện Store.
+- `src/admin-main.tsx`, `src/interface/admin/` — giao diện Admin/Studio.
+- `index.html`, `admin.html` — hai HTML entrypoint.
+- `wrangler.toml` — cấu hình production.
+- `wrangler.bootstrap.toml` — cấu hình deployment đầu tiên trước khi secrets Access được liên kết.
+- `scripts/provision-cloudflare-resources.mjs` — đảm bảo R2 bucket tồn tại.
+- `scripts/provision-cloudflare-access.mjs` — cấu hình Zero Trust/Access và file secrets tạm.
+- `scripts/prepare-worker-assets.mjs` — tạo `.worker-dist/` từ build Vite.
+- `scripts/verify-store-admin-build.mjs` — xác nhận cả Store/Admin được build.
+- `scripts/smoke-test-cloudflare.mjs` — kiểm tra endpoint production.
+- `.github/workflows/deploy-cloudflare.yml` — deployment production.
+- `.github/workflows/ci-deploy.yml` — kiểm tra pull request/push.
+- `.github/workflows/build-and-publish-release.yml` — đóng gói/publish bản web.
+
+## 9. Xử lý lỗi phổ biến
+
+**403 khi tạo bucket hoặc Access:** kiểm tra Account ID, quyền token và quyền Workers Scripts, R2, Access Organizations, Identity Providers, Apps và Policies; token cần cấp đúng account.
+
+**Thiếu `CF_ACCESS_ADMIN_EMAILS`:** tạo GitHub Actions variable/secret có email hợp lệ, cách nhau bằng dấu phẩy và chạy lại workflow.
+
+**Admin trả về Access setup required (503):** kiểm tra bước provision Access, secrets file tạm và endpoint `/api/v1/runtime/readiness`. Không tắt cơ chế xác minh Access để né lỗi.
+
+**`releaseStorage: false`:** kiểm tra bucket `hendy-tool-releases`, binding `RELEASES_BUCKET` và account chứa bucket có cùng account triển khai Worker.
+
+**Release URL trả 404:** object key chưa tồn tại hoặc không trùng. Upload artifact thật vào đúng key và kiểm tra lại danh mục.
+
+**Thiếu `dist/admin.html`:** chạy `npm run build` và `node scripts/verify-store-admin-build.mjs`. Không xóa `admin.html` trước khi deploy Worker.
+
+**Hostname workers.dev sai:** xác nhận hostname trên Cloudflare Worker Overview; cập nhật `PUBLIC_BASE_URL`, `WORKER_HOST` và `APP_BASE_URL` cho nhất quán trước khi provision Access.
+
+## 10. Checklist bảo mật production
+
+- Không commit `.env`, `.dev.vars`, `.runtime`, secret files, API tokens hoặc publisher tokens.
+- Không đặt secret trong biến `VITE_*`; Vite đóng gói các biến này vào browser bundle.
+- Giữ Cloudflare Access cho mọi route Admin và API nhạy cảm.
+- Rà soát danh sách email được phép truy cập sau khi thay đổi nhân sự.
+- Xem Worker Logs và usage/cost sau deployment.
+- Chỉ phát hành binary có nguồn gốc rõ ràng; không dùng metadata giả làm bằng chứng rằng binary đã tồn tại.

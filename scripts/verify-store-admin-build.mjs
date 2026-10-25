@@ -28,7 +28,7 @@ assert.match(adminEntry, /\.\/admin\.css/, "Admin entrypoint must import its own
 assert.match(publicApp, /StorefrontV2/, "Public React app must mount the Storefront");
 assert.doesNotMatch(read("src/interface/store/StorefrontV2.tsx"), /onOpenAdmin|Developer Studio|Trung tâm nhà phát triển|Repository mã nguồn|Source code|github\.com\/ngogiaidy56-eng\/hendy-tool-releas/, "Storefront must not expose Admin or repository links");
 assert.doesNotMatch(worker, /Đường dẫn quản trị được bảo vệ|CF_ACCESS_TEAM_DOMAIN \+ CF_ACCESS_AUD/, "Admin denied page must not display protected-path/security configuration details");
-assert.doesNotMatch(publicApp, /StudioWorkspace/, "Public React app must not bundle the Admin view");
+assert.doesNotMatch(publicApp, /StudioWorkspace|ServerPlusConsole|SecurityGate/, "Public React app must not bundle Admin UI or client-only security gates");
 assert.match(viteConfig, /index\.html/, "Vite must include the Storefront entry");
 assert.match(viteConfig, /admin\.html/, "Vite must include the Admin entry");
 assert.match(worker, /adminAccessPage\(denied\.status\)/, "Worker must fail closed for unauthenticated Admin routes");

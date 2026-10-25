@@ -254,7 +254,7 @@ async function manifestResponse(request: Request, env: Env): Promise<Response> {
   return json({
     schemaVersion: "1.0.0",
     generatedAt: new Date().toISOString(),
-    repository: "https://github.com/ngogiaidy56-eng/hendy-tool-releas",
+    repository: "https://github.com/ngogiaidy56-eng/hendy-server-app-store",
     app: {
       id: "hendy-tools-pro",
       name: "Hendy Tools Pro",
@@ -460,7 +460,7 @@ const DEFAULT_STOREFRONT_CONFIG: StorefrontConfig = {
   heroAccent: "trong một nơi.",
   heroDescription: "Khám phá ứng dụng và tải xuống các bản phát hành thật, với thông tin phiên bản và mã kiểm tra tệp rõ ràng.",
   supportUrl: "",
-  repositoryUrl: "https://github.com/ngogiaidy56-eng/hendy-tool-releas",
+  repositoryUrl: "https://github.com/ngogiaidy56-eng/hendy-server-app-store",
 };
 
 function parseStorefrontConfig(value: unknown): StorefrontConfig {
@@ -890,7 +890,6 @@ async function routeApi(request: Request, env: Env): Promise<Response | null> {
       success: true,
       domains: [
         { domain: new URL(origin).host, provider: "cloudflare-workers", targetInterface: "store", primary: true },
-        { domain: "hendy-tool-releas.pages.dev", provider: "cloudflare-pages", targetInterface: "store", primary: false },
       ],
       note: "Danh sách domain mục tiêu; hãy kiểm tra trạng thái thực trong Cloudflare Dashboard.",
     });

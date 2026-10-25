@@ -49,6 +49,6 @@ export function useRuntimeConfig(): UseRuntimeConfigReturn {
     secretsStatus,
     isCloudflarePages,
     isCloudflareWorker,
-    activeDomain: currentHost || config.cloudflarePagesDomain,
+    activeDomain: currentHost || config.cloudflareWorkerDomain,
   };
 }

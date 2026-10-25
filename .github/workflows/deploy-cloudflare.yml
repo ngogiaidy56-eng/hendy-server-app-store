@@ -1,18 +1,17 @@
-name: Deploy Hendy Store to Cloudflare Workers & Pages
+name: Deploy Hendy App Store to Cloudflare Worker
 
 on:
   push:
     branches: [main]
     paths:
       - 'src/**'
-      - 'functions/**'
       - 'public/**'
       - 'index.html'
       - 'admin.html'
       - 'package.json'
-      - 'package-lock.json'
       - 'wrangler*.toml'
       - 'vite.config.ts'
+      - 'tsconfig.json'
       - 'scripts/**'
       - '.github/workflows/deploy-cloudflare.yml'
   workflow_dispatch:
@@ -26,7 +25,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Validate, provision runtime, deploy Worker and Pages
+    name: Verify, provision and deploy Cloudflare Worker
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -34,94 +33,81 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
       CF_ACCESS_ADMIN_EMAILS: ${{ vars.CF_ACCESS_ADMIN_EMAILS || secrets.CF_ACCESS_ADMIN_EMAILS }}
       RELEASE_PUBLISH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
+      CLOUDFLARE_WORKER_NAME: hendy-tool-releas
+      WORKER_HOST: hendy-tool-releas.ngogiaidy56.workers.dev
       APP_BASE_URL: https://hendy-tool-releas.ngogiaidy56.workers.dev
-      PAGES_BASE_URL: https://hendy-tool-releas.pages.dev
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      - name: Validate deployment credentials
+      - name: Validate Cloudflare deployment settings
         shell: bash
         run: |
           set -euo pipefail
           if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
-            echo "::error::Add CLOUDFLARE_API_TOKEN as a GitHub Actions secret. Use a scoped API token with Workers Scripts Edit, R2 Storage Edit, Pages Edit, and Zero Trust Access Applications/Policies, Identity Providers/Groups, and Organization permissions."
+            echo "::error::Add CLOUDFLARE_API_TOKEN in GitHub Actions secrets."
             exit 1
           fi
           if ! [[ "${CLOUDFLARE_ACCOUNT_ID:-}" =~ ^[a-fA-F0-9]{32}$ ]]; then
-            echo "::error::Set CLOUDFLARE_ACCOUNT_ID as a GitHub Actions variable or secret (32 hex characters)."
+            echo "::error::Set CLOUDFLARE_ACCOUNT_ID as a GitHub Actions variable or secret."
             exit 1
           fi
           if [ -z "${CF_ACCESS_ADMIN_EMAILS:-}" ]; then
-            echo "::error::Set CF_ACCESS_ADMIN_EMAILS to the real admin email(s), comma-separated, in GitHub Actions variables or secrets. The provisioner will use these emails to create Access allow policies."
+            echo "::error::Set CF_ACCESS_ADMIN_EMAILS to one or more real administrator emails."
             exit 1
           fi
-          echo "Deployment credentials are present; secret values are not printed."
+          echo "Required deployment settings are present; secret values are not printed."
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Typecheck and test Worker, auth, Pages gateway
+      - name: Type check and unit tests
         run: |
           npm run lint
           npm test
 
-      - name: Build storefront and Admin entrypoints
+      - name: Build Store and Admin for Worker Static Assets
         run: |
           npm run build
           node scripts/verify-store-admin-build.mjs
           test -s dist/index.html
           test -s dist/admin.html
+          test -s .worker-dist/index.html
+          test -s .worker-dist/admin.html
 
-      - name: Create missing Cloudflare R2 and Pages resources; reconcile runtime variables
+      - name: Ensure Cloudflare R2 release bucket exists
         run: node scripts/provision-cloudflare-resources.mjs
 
-      # Bootstrap deployment creates/updates the Worker before Access apps are attached.
-      # The final deployment below uploads secrets and activates the runtime auth config.
-      - name: Prepare Worker asset directory
-        run: node scripts/prepare-worker-assets.mjs
-
-      - name: Bootstrap Worker code and R2 binding
+      - name: Bootstrap Worker
         run: npx --yes wrangler@4 deploy --config=wrangler.bootstrap.toml
 
-      - name: Provision Cloudflare Access applications and runtime secrets
+      - name: Provision Cloudflare Access and generate temporary Worker secrets
         id: access
         run: node scripts/provision-cloudflare-access.mjs --output "$RUNNER_TEMP/worker-secrets.json"
 
-      - name: Deploy Worker with linked runtime secrets
+      - name: Deploy production Worker with required secrets
         run: npx --yes wrangler@4 deploy --config=wrangler.toml --secrets-file "${{ steps.access.outputs.secrets_file }}"
 
-      - name: Prepare storefront-only Pages output
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -f dist/admin.html
-          test -s dist/index.html
-          test ! -e dist/admin.html
-          echo "Private Admin HTML remains only in the Access-gated Worker asset bundle."
-
-      - name: Deploy Pages storefront and API proxy
-        run: npx --yes wrangler@4 pages deploy dist --config=wrangler.pages.toml --project-name=hendy-tool-releas --branch=main
-
-      - name: Smoke-test live Worker and Pages routes
-        run: node scripts/smoke-test-cloudflare.mjs
+      - name: Smoke-test deployed Worker
+        run: npm run smoke:cloudflare
 
       - name: Deployment summary
         if: always()
         run: |
           {
-            echo "## Hendy Store deployment"
+            echo "## Hendy App Store — Cloudflare Worker"
             echo
             echo "- Worker: https://hendy-tool-releas.ngogiaidy56.workers.dev/"
-            echo "- Admin: https://hendy-tool-releas.ngogiaidy56.workers.dev/admin"
-            echo "- Pages storefront: https://hendy-tool-releas.pages.dev/"
-            echo "- Runtime variables are declared in Wrangler/Pages config and reconciled by provisioning scripts."
-            echo "- Sensitive values are uploaded from a runner-temporary file and never committed to Git."
-            echo "- Deployment stage result: ${{ job.status }}"
+            echo "- Store: /"
+            echo "- Admin (Cloudflare Access protected): /admin"
+            echo "- Health: /healthz"
+            echo "- Runtime readiness: /api/v1/runtime/readiness"
+            echo "- Deployment status: ${{ job.status }}"
+            echo "- Artifact downloads require the real package files to be present in R2."
           } >> "$GITHUB_STEP_SUMMARY"

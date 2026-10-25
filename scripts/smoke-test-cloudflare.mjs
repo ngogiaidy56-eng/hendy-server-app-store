@@ -1,5 +1,4 @@
-const workerBase = (process.env.APP_BASE_URL || "https://hendy-tool-releas.ngogiaidy56.workers.dev").replace(/\/$/, "");
-const pagesBase = (process.env.PAGES_BASE_URL || "https://hendy-tool-releas.pages.dev").replace(/\/$/, "");
+const workerBase = (process.env.APP_BASE_URL || "https://hendy-tool-releas.ngogiaidy56.workers.dev").replace(/\/+$/, "");
 const maxAttempts = Number(process.env.SMOKE_RETRIES || 8);
 const delayMs = Number(process.env.SMOKE_DELAY_MS || 4000);
 
@@ -23,21 +22,28 @@ function assert(condition, message) {
 }
 
 const healthResponse = await fetchWithRetry(workerBase + "/healthz");
-assert(healthResponse.status === 200, "Worker health check failed.");
 const health = await healthResponse.json();
-assert(health.status === "healthy", "Worker health payload is not healthy.");
+assert(healthResponse.status === 200 && health.status === "healthy", "Worker health check failed.");
 
-const readyResponse = await fetchWithRetry(workerBase + "/api/v1/runtime/readiness");
-const readiness = await readyResponse.json();
+const readinessResponse = await fetchWithRetry(workerBase + "/api/v1/runtime/readiness");
+const readiness = await readinessResponse.json();
 assert(readiness.success === true, "Worker readiness endpoint returned an error.");
-assert(readiness.checks?.staticAssets === true, "Worker static Assets binding is missing.");
-assert(readiness.checks?.releaseStorage === true, "R2 release storage is not fully bound.");
-assert(readiness.checks?.adminAccess === true, "Cloudflare Access runtime variables were not linked.");
-assert(readiness.adminReady === true, "Admin readiness is false; inspect the runtime readiness payload.");
+assert(readiness.checks?.worker === true, "Worker runtime is not ready.");
+assert(readiness.checks?.staticAssets === true, "Worker Static Assets binding is missing.");
+assert(readiness.checks?.releaseStorage === true, "R2 release bucket binding is missing.");
+assert(readiness.checks?.adminAccess === true, "Cloudflare Access secrets are not linked.");
+assert(readiness.adminReady === true, "Admin readiness is false; inspect the readiness payload.");
 
-const workerReleasesResponse = await fetchWithRetry(workerBase + "/api/v1/published-releases");
-const workerReleases = await workerReleasesResponse.json();
-assert(workerReleases.success === true && Array.isArray(workerReleases.releases), "Worker public release catalog response is invalid.");
+const metaResponse = await fetchWithRetry(workerBase + "/api/v1/meta");
+const meta = await metaResponse.json();
+assert(metaResponse.status === 200 && meta.success !== false, "Worker metadata endpoint did not return a successful response.");
+
+const releaseResponse = await fetchWithRetry(workerBase + "/api/v1/published-releases");
+const releasePayload = await releaseResponse.json();
+assert(releaseResponse.status === 200 && releasePayload.success === true && Array.isArray(releasePayload.releases), "Published release catalog response is invalid.");
+
+const storeResponse = await fetchWithRetry(workerBase + "/", { headers: { Accept: "text/html" } });
+assert(storeResponse.status === 200 && /text\/html/i.test(storeResponse.headers.get("content-type") || ""), "Storefront HTML was not served.");
 
 const adminResponse = await fetchWithRetry(
   workerBase + "/admin",
@@ -46,38 +52,17 @@ const adminResponse = await fetchWithRetry(
 );
 assert(adminResponse.status !== 503, "Admin route still reports missing Access configuration.");
 
-const pagesReleasesResponse = await fetchWithRetry(pagesBase + "/api/v1/published-releases");
-const pagesReleases = await pagesReleasesResponse.json();
-assert(pagesReleases.success === true && Array.isArray(pagesReleases.releases), "Pages public API proxy did not return the Worker catalog.");
-
-const pagesAdminResponse = await fetchWithRetry(
-  pagesBase + "/api/v1/admin/status",
-  { headers: { Accept: "application/json" } },
-  (response) => response.status === 403
-);
-const pagesAdmin = await pagesAdminResponse.json();
-assert(pagesAdmin.error === "admin_requires_primary_origin", "Pages must deny Admin API routes and use the Worker Access-protected origin.");
-
-const pagesCiResponse = await fetchWithRetry(
-  pagesBase + "/api/v1/ci/publish",
-  { method: "POST", body: new FormData() },
-  (response) => response.status === 403
-);
-const pagesCi = await pagesCiResponse.json();
-assert(pagesCi.error === "ci_publish_requires_primary_origin", "Pages must deny CI publisher routes and leave publishing on the primary Worker.");
-
 console.log(JSON.stringify({
   success: true,
   worker: workerBase,
-  pages: pagesBase,
   checks: {
     workerHealth: true,
-    workerStaticAssets: readiness.checks.staticAssets,
+    runtimeReadiness: true,
+    staticAssets: readiness.checks.staticAssets,
     r2Binding: readiness.checks.releaseStorage,
     accessRuntime: readiness.checks.adminAccess,
-    adminRouteNotInSetupError: adminResponse.status !== 503,
-    workerCatalog: true,
-    pagesProxy: true,
-    pagesAdminDenied: true,
+    storefront: true,
+    adminRouteProtected: true,
+    publishedReleaseCatalog: true,
   },
 }, null, 2));

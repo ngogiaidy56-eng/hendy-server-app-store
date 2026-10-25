@@ -4,7 +4,7 @@
  */
 
 /**
- * Cloudflare Workers & Pages Runtime Environment & Secrets Binding Engine.
+ * Cloudflare Worker Runtime Environment & Secrets Binding Engine.
  * Tự động tạo, khai báo, gắn kết (bind) biến môi trường và bí mật (secrets) tại thời điểm thực thi (runtime).
  */
 
@@ -13,7 +13,7 @@ export interface RuntimeConfig {
   appUrl: string;
   environment: 'production' | 'preview' | 'development';
   releaseChannel: 'stable' | 'beta' | 'nightly';
-  cloudflarePagesDomain: string;
+  cloudflareWorkerDomain: string;
   cloudflareWorkerUrl: string;
   r2BucketName: string;
   version: string;
@@ -41,14 +41,14 @@ declare global {
 }
 
 /**
- * Default fallback configuration for Cloudflare Pages & Workers runtime
+ * Default fallback configuration for Cloudflare Worker runtime
  */
 export const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = {
   appName: 'Hendy Tools Platform & App Downloader',
-  appUrl: 'https://hendytools.pages.dev',
+  appUrl: 'https://hendy-tool-releas.ngogiaidy56.workers.dev',
   environment: 'production',
   releaseChannel: 'stable',
-  cloudflarePagesDomain: 'hendytools.pages.dev',
+  cloudflareWorkerDomain: 'hendy-tool-releas.ngogiaidy56.workers.dev',
   cloudflareWorkerUrl: 'https://hendy-tool-releas.ngogiaidy56.workers.dev',
   r2BucketName: 'hendy-tool-releases',
   version: '3.2.0',
@@ -117,10 +117,10 @@ export function resolveRuntimeConfig(): RuntimeConfig {
     (metaEnv.VITE_RELEASE_CHANNEL as any) ||
     'stable';
 
-  const cloudflarePagesDomain =
-    windowConfig.cloudflarePagesDomain ||
-    metaEnv.VITE_CLOUDFLARE_PAGES_DOMAIN ||
-    DEFAULT_RUNTIME_CONFIG.cloudflarePagesDomain;
+  const cloudflareWorkerDomain =
+    windowConfig.cloudflareWorkerDomain ||
+    metaEnv.VITE_CLOUDFLARE_WORKER_DOMAIN ||
+    DEFAULT_RUNTIME_CONFIG.cloudflareWorkerDomain;
 
   const cloudflareWorkerUrl =
     windowConfig.cloudflareWorkerUrl ||
@@ -142,7 +142,7 @@ export function resolveRuntimeConfig(): RuntimeConfig {
     appUrl,
     environment,
     releaseChannel,
-    cloudflarePagesDomain,
+    cloudflareWorkerDomain,
     cloudflareWorkerUrl,
     r2BucketName,
     version,
@@ -159,17 +159,17 @@ export function getRuntimeSecretsStatus(): RuntimeSecretsStatus {
 
   // In production browser, check presence of injected or known bindings
   const hasCloudflareApiToken = Boolean(
-    windowStatus.hasCloudflareApiToken ?? true // Cloudflare Pages Direct Upload / API token bound in GitHub Actions
+    windowStatus.hasCloudflareApiToken ?? false // Deployment tokens are never exposed to the browser
   );
   const hasCloudflareAccountId = Boolean(
-    windowStatus.hasCloudflareAccountId ?? true
+    windowStatus.hasCloudflareAccountId ?? false
   );
   const hasReleasePublishToken = Boolean(
-    windowStatus.hasReleasePublishToken ?? true
+    windowStatus.hasReleasePublishToken ?? false
   );
   const hasFirebaseConfig = true; // firebase-applet-config.json is active
-  const hasGoogleDriveScope = true; // https://www.googleapis.com/auth/drive.file scope granted
-  const hasCfAccessConfig = true; // Cloudflare Access Team Domain & AUD validated
+  const hasGoogleDriveScope = Boolean(windowStatus.hasGoogleDriveScope ?? false);
+  const hasCfAccessConfig = Boolean(windowStatus.hasCfAccessConfig ?? false);
 
   const bindings = [
     hasCloudflareApiToken,
@@ -204,7 +204,7 @@ ENVIRONMENT = "${merged.environment}"
 APP_NAME = "${merged.appName}"
 PUBLIC_BASE_URL = "${merged.appUrl}"
 RELEASE_CHANNEL = "${merged.releaseChannel}"
-CLOUDFLARE_PAGES_DOMAIN = "${merged.cloudflarePagesDomain}"
+CLOUDFLARE_WORKER_DOMAIN = "${merged.cloudflareWorkerDomain}"
 R2_BUCKET_NAME = "${merged.r2BucketName}"
 `;
 }

@@ -137,8 +137,8 @@ gh secret set FIREBASE_CONFIG --body "$(cat firebase-applet-config.json)"
             <span className="font-semibold text-emerald-400 uppercase tracking-wide">{config.environment}</span>
           </div>
           <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
-            <span className="text-slate-500 block mb-1">Tên miền Cloudflare Pages</span>
-            <span className="font-mono text-blue-400 font-medium">{config.cloudflarePagesDomain}</span>
+            <span className="text-slate-500 block mb-1">Tên miền Cloudflare Worker</span>
+            <span className="font-mono text-blue-400 font-medium">{config.cloudflareWorkerDomain}</span>
           </div>
           <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
             <span className="text-slate-500 block mb-1">R2 Storage Bucket</span>
@@ -245,13 +245,13 @@ gh secret set FIREBASE_CONFIG --body "$(cat firebase-applet-config.json)"
                 <tr>
                   <td className="py-2.5 px-3 text-blue-400 font-semibold">PUBLIC_BASE_URL</td>
                   <td className="py-2.5 px-3 text-slate-200">{config.appUrl}</td>
-                  <td className="py-2.5 px-3 text-slate-400">Auto-Resolved Location / Pages</td>
+                  <td className="py-2.5 px-3 text-slate-400">Auto-Resolved Location / Worker</td>
                   <td className="py-2.5 px-3"><span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">Hoạt động</span></td>
                 </tr>
                 <tr>
-                  <td className="py-2.5 px-3 text-blue-400 font-semibold">CLOUDFLARE_PAGES_DOMAIN</td>
-                  <td className="py-2.5 px-3 text-blue-300 font-bold">{config.cloudflarePagesDomain}</td>
-                  <td className="py-2.5 px-3 text-slate-400">Cloudflare Pages Primary Domain</td>
+                  <td className="py-2.5 px-3 text-blue-400 font-semibold">CLOUDFLARE_WORKER_DOMAIN</td>
+                  <td className="py-2.5 px-3 text-blue-300 font-bold">{config.cloudflareWorkerDomain}</td>
+                  <td className="py-2.5 px-3 text-slate-400">Cloudflare Worker Public Host</td>
                   <td className="py-2.5 px-3"><span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">Hoạt động</span></td>
                 </tr>
                 <tr>

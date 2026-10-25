@@ -16,7 +16,7 @@ test('resolveRuntimeConfig returns valid default production config', () => {
   const config = resolveRuntimeConfig();
   assert.equal(typeof config.appName, 'string');
   assert.equal(['production', 'development', 'preview'].includes(config.environment), true);
-  assert.equal(config.cloudflarePagesDomain, 'hendytools.pages.dev');
+  assert.equal(config.cloudflareWorkerDomain, 'hendy-tool-releas.ngogiaidy56.workers.dev');
   assert.equal(config.version, '3.2.0');
   assert.equal(config.isAirGapped, true);
 });
@@ -39,5 +39,5 @@ test('generateWranglerVarsBlock generates TOML formatted variables section', () 
   assert.match(toml, /\[vars\]/);
   assert.match(toml, /APP_NAME = "Custom App Test"/);
   assert.match(toml, /ENVIRONMENT = "production"/);
-  assert.match(toml, /CLOUDFLARE_PAGES_DOMAIN = "hendytools\.pages\.dev"/);
+  assert.match(toml, /CLOUDFLARE_WORKER_DOMAIN = "hendy-tool-releas\.ngogiaidy56\.workers\.dev"/);
 });

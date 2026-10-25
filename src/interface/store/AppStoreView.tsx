@@ -94,7 +94,7 @@ export const AppStoreView: React.FC<AppStoreViewProps> = ({
         <div className="flex items-center gap-2.5 shrink-0 relative">
           <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 text-[11px] font-mono text-slate-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            <span className="text-slate-300">hendytools.pages.dev</span>
+            <span className="text-slate-300">hendy-tool-releas.ngogiaidy56.workers.dev</span>
           </div>
 
           {/* User Registration & Login with Gmail */}

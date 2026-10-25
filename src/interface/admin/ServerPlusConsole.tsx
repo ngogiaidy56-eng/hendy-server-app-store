@@ -31,13 +31,13 @@ export const ServerPlusConsole: React.FC<ServerPlusConsoleProps> = ({
 
   const [services, setServices] = useState<ServiceItem[]>([
     {
-      id: 'svc-pages',
-      name: 'Cloudflare Pages & Worker Edge Gateway',
+      id: 'svc-workers',
+      name: 'Cloudflare Workers + Static Assets',
       port: 3000,
       status: 'running',
       cpu: 1.2,
       memory: '210 MB',
-      description: 'Cổng phân phối và định tuyến toàn cầu qua Cloudflare Edge Network.',
+      description: 'Worker dùng chung để phục vụ Store/Admin, định tuyến API và phân phối artifact từ R2.',
     },
     {
       id: 'svc-gateway',
@@ -319,7 +319,7 @@ export const ServerPlusConsole: React.FC<ServerPlusConsoleProps> = ({
                 </div>
                 <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
                   <span className="text-slate-500 block mb-1">Cơ chế Caching:</span>
-                  <span className="font-medium text-emerald-400">Cloudflare Pages Tiered Cache</span>
+                  <span className="font-medium text-emerald-400">Cloudflare Worker Static Assets + R2</span>
                 </div>
                 <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
                   <span className="text-slate-500 block mb-1">Độ trễ trung bình:</span>
