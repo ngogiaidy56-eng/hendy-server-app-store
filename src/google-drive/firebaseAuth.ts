@@ -26,10 +26,16 @@ export const DRIVE_SCOPES = [
   'https://www.googleapis.com/auth/drive.file',
 ];
 
-const provider = new GoogleAuthProvider();
-for (const scope of DRIVE_SCOPES) {
-  provider.addScope(scope);
-}
+export const createGoogleProvider = (includeDriveScopes = false): GoogleAuthProvider => {
+  const googleProvider = new GoogleAuthProvider();
+  googleProvider.setCustomParameters({ prompt: 'select_account' });
+  if (includeDriveScopes) {
+    for (const scope of DRIVE_SCOPES) {
+      googleProvider.addScope(scope);
+    }
+  }
+  return googleProvider;
+};
 
 // In-memory access token storage (MANDATORY per Workspace Skill - never in localStorage)
 let cachedAccessToken: string | null = null;
@@ -54,19 +60,32 @@ export const initAuth = (
   });
 };
 
-export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
+export const googleSignIn = async (
+  includeDriveScopes = false
+): Promise<{ user: User; accessToken: string | null } | null> => {
   try {
     isSigningIn = true;
+    const provider = createGoogleProvider(includeDriveScopes);
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
-      throw new Error('Không thể nhận access token từ Firebase Auth');
+    cachedAccessToken = credential?.accessToken || null;
+
+    if (includeDriveScopes && !cachedAccessToken) {
+      console.warn('Google Drive access token không có trong phản hồi xác thực.');
     }
 
-    cachedAccessToken = credential.accessToken;
     return { user: result.user, accessToken: cachedAccessToken };
-  } catch (error) {
-    console.error('Lỗi đăng nhập Google Auth:', error);
+  } catch (error: any) {
+    const errorCode = error?.code || '';
+    if (errorCode === 'auth/popup-closed-by-user') {
+      console.info('Google Auth: Cửa sổ đăng nhập đã được đóng bởi người dùng.');
+    } else if (errorCode === 'auth/popup-blocked') {
+      console.warn('Google Auth: Cửa sổ popup bị chặn bởi trình duyệt.');
+    } else if (errorCode === 'auth/cancelled-popup-request') {
+      console.info('Google Auth: Yêu cầu popup trước đó đã bị hủy.');
+    } else {
+      console.error('Lỗi đăng nhập Google Auth:', error);
+    }
     throw error;
   } finally {
     isSigningIn = false;

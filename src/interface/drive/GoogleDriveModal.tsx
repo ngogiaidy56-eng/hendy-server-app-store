@@ -58,15 +58,26 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({ onClose }) =
     setStatusMessage(null);
     setAuthError(null);
     try {
-      const res = await googleSignIn();
-      if (res) {
+      const res = await googleSignIn(true);
+      if (res?.user) {
         setCurrentUser(res.user);
-        setAccessToken(res.accessToken);
-        setStatusMessage('Đăng nhập Google Workspace thành công.');
-        await loadFiles(res.accessToken);
+        if (res.accessToken) {
+          setAccessToken(res.accessToken);
+          setStatusMessage('Đăng nhập Google Workspace thành công.');
+          await loadFiles(res.accessToken);
+        } else {
+          setStatusMessage('Đăng nhập thành công.');
+        }
       }
     } catch (err: any) {
-      setAuthError(`Không thể đăng nhập Google: ${err.message}`);
+      const errorCode = err?.code || '';
+      if (errorCode === 'auth/popup-closed-by-user' || err?.message?.includes('popup-closed-by-user')) {
+        setStatusMessage('Cửa sổ xác thực Google Drive đã được đóng. Hãy nhấn lại nút khi bạn sẵn sàng cấp quyền.');
+      } else if (errorCode === 'auth/popup-blocked' || err?.message?.includes('popup-blocked')) {
+        setAuthError('Trình duyệt đã chặn cửa sổ xác thực. Vui lòng mở quyền Pop-up cho trang này để kết nối Google Drive.');
+      } else {
+        setAuthError(`Không thể đăng nhập Google: ${err.message || 'Lỗi kết nối'}`);
+      }
     } finally {
       setIsLoading(false);
     }

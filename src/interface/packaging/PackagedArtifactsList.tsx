@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Download, ShieldCheck, Terminal, Copy, Check, Cloud, Laptop, Smartphone, Globe } from 'lucide-react';
+import { Download, ShieldCheck, Terminal, Copy, Check, Cloud, Laptop, Smartphone, Globe, CheckCircle, Sparkles } from 'lucide-react';
 import { BuildArtifact } from '../../types/index.ts';
 import { formatBytes, getPlatformVietnameseName, getRecommendedInstallerCommand, createExecutableInstallerScript } from '../../utils/packaging.ts';
 
@@ -12,6 +12,7 @@ interface PackagedArtifactsListProps {
   artifacts: BuildArtifact[];
   onOpenDriveModal?: () => void;
   appName: string;
+  onPublishToStore?: () => void;
 }
 
 export const PackagedArtifactsList: React.FC<PackagedArtifactsListProps> = ({
@@ -76,16 +77,30 @@ export const PackagedArtifactsList: React.FC<PackagedArtifactsListProps> = ({
           </p>
         </div>
 
-        {onOpenDriveModal && (
-          <button
-            type="button"
-            onClick={onOpenDriveModal}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
-          >
-            <Cloud className="w-4 h-4 text-blue-400" />
-            <span>Sao lưu lên Google Drive</span>
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {onOpenDriveModal && (
+            <button
+              type="button"
+              onClick={onOpenDriveModal}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
+            >
+              <Cloud className="w-4 h-4 text-blue-400" />
+              <span>Sao lưu lên Google Drive</span>
+            </button>
+          )}
+
+          {onPublishToStore && (
+            <button
+              type="button"
+              onClick={onPublishToStore}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white transition-all shadow-md cursor-pointer"
+              title="Xuất bản ứng dụng này lên Cửa hàng AppStoreView và chuyển sang giao diện Cửa hàng"
+            >
+              <CheckCircle className="w-4 h-4 text-white" />
+              <span>Xuất bản lên Cửa hàng</span>
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -104,7 +119,7 @@ export const PackagedArtifactsList: React.FC<PackagedArtifactsListProps> = ({
                   <div className="flex items-center gap-2">
                     {getPlatformIcon(art.platform)}
                     <span className="font-semibold text-xs text-slate-200">
-                      {getPlatformVietnameseName(art.platform)}
+                      {getPlatformVietnameseName(art.platform, art.arch)}
                     </span>
                   </div>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-800/60 text-emerald-300 flex items-center gap-1">

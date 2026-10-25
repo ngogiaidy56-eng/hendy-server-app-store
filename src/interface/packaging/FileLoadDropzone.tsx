@@ -4,9 +4,9 @@
  */
 
 import React, { useState, useRef } from 'react';
-import { Upload, FolderArchive, FileCode, CheckCircle, Trash2, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Upload, FolderArchive, FileCode, CheckCircle, Trash2, ShieldCheck, AlertCircle, FolderTree, Sparkles } from 'lucide-react';
 import JSZip from 'jszip';
-import { generatePseudoSha256 } from '../../utils/packaging.ts';
+import { generatePseudoSha256, scaffoldStructuredProjectFiles } from '../../utils/packaging.ts';
 
 export interface LoadedSourceFile {
   name: string;
@@ -21,6 +21,8 @@ interface FileLoadDropzoneProps {
   onFilesLoaded: (newFiles: LoadedSourceFile[]) => void;
   onRemoveFile: (index: number) => void;
   onClearAll: () => void;
+  appName?: string;
+  version?: string;
 }
 
 function detectLanguage(fileName: string): string {
@@ -59,11 +61,55 @@ export const FileLoadDropzone: React.FC<FileLoadDropzoneProps> = ({
   onFilesLoaded,
   onRemoveFile,
   onClearAll,
+  appName = 'Hendy App',
+  version = '1.0.0',
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const hasBuildConfig = files.some(
+    (f) =>
+      f.name === 'Cargo.toml' ||
+      f.name.endsWith('/Cargo.toml') ||
+      f.name === 'package.json' ||
+      f.name.endsWith('/package.json') ||
+      f.name === 'CMakeLists.txt' ||
+      f.name === 'pyproject.toml'
+  );
+
+  const handleAutoScaffoldFromLoaded = () => {
+    if (files.length === 0) return;
+    const entryFile =
+      files.find(
+        (f) =>
+          f.name.endsWith('.rs') ||
+          f.name.endsWith('.ts') ||
+          f.name.endsWith('.tsx') ||
+          f.name.endsWith('.py') ||
+          f.name.endsWith('.cpp')
+      ) || files[0];
+
+    const companionFiles = scaffoldStructuredProjectFiles(
+      entryFile.name,
+      entryFile.language,
+      entryFile.content,
+      appName,
+      version
+    );
+
+    const newFilesToAdd = companionFiles.filter(
+      (cf) => !files.some((existing) => existing.name === cf.name)
+    );
+
+    if (newFilesToAdd.length > 0) {
+      onFilesLoaded(newFilesToAdd);
+      setStatusMessage(`Đã tự động tạo ${newFilesToAdd.length} tệp cấu trúc đóng gói (src/, Cargo/package, manifest)!`);
+    } else {
+      setStatusMessage('Cấu trúc thư mục đóng gói đã đầy đủ!');
+    }
+  };
 
   const processFileList = async (fileList: FileList | File[]) => {
     setIsProcessing(true);
@@ -214,6 +260,26 @@ export const FileLoadDropzone: React.FC<FileLoadDropzoneProps> = ({
         <div className="flex items-center gap-2 text-xs p-3 rounded-lg bg-slate-800/80 border border-slate-700/60 text-slate-200">
           <AlertCircle className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{statusMessage}</span>
+        </div>
+      )}
+
+      {/* Auto-Scaffold Project Structure Notification */}
+      {files.length > 0 && !hasBuildConfig && (
+        <div className="bg-gradient-to-r from-blue-950/70 to-indigo-950/70 border border-blue-800/60 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <FolderTree className="w-4 h-4 text-blue-400 shrink-0" />
+            <span className="text-slate-200">
+              Đã nạp tệp mã nguồn. Bạn có thể tự động tạo đầy đủ cây thư mục <code className="text-blue-300 font-mono">src/</code>, <code className="text-blue-300 font-mono">Cargo.toml</code>/<code className="text-blue-300 font-mono">package.json</code> và <code className="text-blue-300 font-mono">manifest.json</code> cho cả Windows 64-bit và 32-bit.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleAutoScaffoldFromLoaded}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors shrink-0 shadow-xs"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <span>Tự động tạo tệp đóng gói</span>
+          </button>
         </div>
       )}
 

@@ -18,6 +18,24 @@ export const AppCard: React.FC<AppCardProps> = ({ app, onSelect, onQuickDownload
   const winArtifact = latestRelease?.artifacts.find((a) => a.platform === 'windows');
   const sizeMb = winArtifact ? (winArtifact.sizeBytes / (1024 * 1024)).toFixed(1) : '15.4';
 
+  const hasWin64 =
+    app.platforms.some(
+      (p) => p.platform === 'windows' && (p.selectedArch === 'x86_64' || p.formats.some((f) => f.architectures.includes('x86_64')))
+    ) || latestRelease?.artifacts.some((a) => a.platform === 'windows' && a.arch === 'x86_64');
+
+  const hasWin32 =
+    app.platforms.some(
+      (p) => p.platform === 'windows' && (p.selectedArch === 'x86' || p.formats.some((f) => f.architectures.includes('x86')))
+    ) || latestRelease?.artifacts.some((a) => a.platform === 'windows' && a.arch === 'x86');
+
+  const hasAndroid =
+    app.platforms.some((p) => p.platform === 'android') ||
+    latestRelease?.artifacts.some((a) => a.platform === 'android');
+
+  const hasIos =
+    app.platforms.some((p) => p.platform === 'ios') ||
+    latestRelease?.artifacts.some((a) => a.platform === 'ios');
+
   return (
     <div
       onClick={() => onSelect(app)}
@@ -45,6 +63,30 @@ export const AppCard: React.FC<AppCardProps> = ({ app, onSelect, onQuickDownload
         <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed mb-3">
           {app.tagline}
         </p>
+
+        {/* Platform support badges */}
+        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+          {hasWin64 && (
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-950/70 border border-blue-800/40 text-blue-300">
+              Win 64-bit
+            </span>
+          )}
+          {hasWin32 && (
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-950/70 border border-cyan-800/40 text-cyan-300">
+              Win 32-bit
+            </span>
+          )}
+          {hasAndroid && (
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/70 border border-emerald-800/40 text-emerald-300">
+              Android
+            </span>
+          )}
+          {hasIos && (
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-950/70 border border-purple-800/40 text-purple-300">
+              iOS
+            </span>
+          )}
+        </div>
 
         {/* Clean metadata without pill capsules */}
         <div className="flex items-center gap-2 text-[11px] text-slate-500 mb-4">

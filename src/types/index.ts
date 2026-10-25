@@ -5,7 +5,7 @@
 
 export type TargetPlatform = 'windows' | 'macos' | 'linux' | 'android' | 'ios' | 'web';
 
-export type ArchType = 'x86_64' | 'arm64' | 'universal' | 'wasm' | 'any';
+export type ArchType = 'x86_64' | 'x86' | 'arm64' | 'universal' | 'wasm' | 'any';
 
 export type ReleaseChannel = 'stable' | 'beta' | 'nightly';
 

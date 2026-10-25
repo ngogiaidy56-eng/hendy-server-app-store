@@ -44,16 +44,25 @@ export function useAuth(): UseAuthReturn {
     setLoading(true);
     setError(null);
     try {
-      const res = await googleSignIn();
+      const res = await googleSignIn(false);
       if (res?.user) {
         setUser(res.user);
         return res.user;
       }
       return null;
     } catch (err: any) {
-      const message = err.message || 'Không thể đăng nhập bằng Gmail / Google';
-      setError(message);
-      throw err;
+      const errorCode = err?.code || '';
+      if (errorCode === 'auth/popup-closed-by-user' || err?.message?.includes('popup-closed-by-user')) {
+        setError('Cửa sổ đăng nhập Google đã được đóng. Bạn có thể nhấn thử lại hoặc đăng ký / đăng nhập bằng Email & Mật khẩu bên dưới.');
+      } else if (errorCode === 'auth/popup-blocked' || err?.message?.includes('popup-blocked')) {
+        setError('Trình duyệt đã chặn cửa sổ Pop-up. Vui lòng cho phép hiển thị Pop-up hoặc sử dụng Email & Mật khẩu.');
+      } else if (errorCode === 'auth/cancelled-popup-request') {
+        setError('Yêu cầu mở cửa sổ đăng nhập đã bị hủy. Vui lòng thử lại.');
+      } else {
+        const message = err?.message || 'Không thể đăng nhập bằng Gmail / Google';
+        setError(message);
+      }
+      return null;
     } finally {
       setLoading(false);
     }

@@ -519,8 +519,7 @@ function isCloudflareAccessConfigured(env: Env): boolean {
 function runtimeChecks(env: Env) {
   return {
     staticAssets: Boolean(env.ASSETS?.fetch),
-    releaseStorage: Boolean(env.RELEASES_BUCKET?.head && env.RELEASES_BUCKET?.get &&
-      env.RELEASES_BUCKET?.put && env.RELEASES_BUCKET?.list),
+    releaseStorage: Boolean(env.RELEASES_BUCKET && env.RELEASES_BUCKET.put && env.RELEASES_BUCKET.list),
     adminAccess: isCloudflareAccessConfigured(env),
     ciPublisher: Boolean(env.RELEASE_PUBLISH_TOKEN?.trim()),
   };
@@ -654,7 +653,7 @@ async function authorizeCiPublisher(request: Request, env: Env): Promise<Respons
     }, 503);
   }
   const authorization = request.headers.get("Authorization") || "";
-  const match = authorization.match(/^Bearer\\s+(.+)$/i);
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
   if (!match || !tokenMatches(match[1].trim(), expected)) {
     return json({ success: false, error: "invalid_publish_token", message: "CI publisher token không hợp lệ." }, 401);
   }

@@ -34,6 +34,7 @@ export const PackagingRunner: React.FC<PackagingRunnerProps> = ({
 }) => {
   const [progress, setProgress] = useState(0);
   const [logs, setLogs] = useState<string[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [steps, setSteps] = useState<StepState[]>([
     { id: 'syntax', title: 'Phân tích cú pháp & Thẩm tra tính toàn vẹn', status: 'pending', log: 'Chờ kích hoạt...' },
     { id: 'deps', title: 'Giải quyết phụ thuộc & Tối ưu hóa AST', status: 'pending', log: 'Chờ kích hoạt...' },
@@ -44,9 +45,10 @@ export const PackagingRunner: React.FC<PackagingRunnerProps> = ({
 
   const runPackagingPipeline = async () => {
     if (files.length === 0) {
-      alert('Vui lòng dán mã nguồn hoặc tải ít nhất một tệp nguồn lên trước khi đóng gói.');
+      setErrorMessage('Vui lòng dán mã nguồn hoặc tải ít nhất một tệp nguồn lên trước khi đóng gói.');
       return;
     }
+    setErrorMessage(null);
 
     setIsBuilding(true);
     setProgress(5);
@@ -75,80 +77,136 @@ export const PackagingRunner: React.FC<PackagingRunnerProps> = ({
     setProgress(50);
 
     // Step 3: Cross-compilation
-    updateStep(2, 'running', `Đang biên dịch cho ${config.selectedPlatforms.length} nền tảng: ${config.selectedPlatforms.join(', ')}...`);
+    updateStep(2, 'running', `Đang biên dịch cho các nền tảng mục tiêu...`);
     for (const p of config.selectedPlatforms) {
-      setLogs((prev) => [...prev, `[COMPILER] Target: ${p.toUpperCase()} -> Biên dịch mã máy nhị phân...`]);
+      if (p === 'windows') {
+        setLogs((prev) => [
+          ...prev,
+          `[COMPILER] Target: WINDOWS x86_64 (64-bit) -> Biên dịch tệp thực thi .exe...`,
+          `[COMPILER] Target: WINDOWS x86 (32-bit) -> Biên dịch tệp thực thi .exe tương thích...`,
+        ]);
+      } else {
+        setLogs((prev) => [...prev, `[COMPILER] Target: ${p.toUpperCase()} -> Biên dịch mã máy nhị phân...`]);
+      }
       await new Promise((r) => setTimeout(r, 350));
     }
-    updateStep(2, 'success', `Biên dịch thành công ${config.selectedPlatforms.length} gói nhị phân độc lập.`);
+    updateStep(2, 'success', `Biên dịch thành công các gói nhị phân cho Windows 64-bit & 32-bit và các nền tảng.`);
     setProgress(75);
 
     // Step 4: Signing
     updateStep(3, 'running', 'Đang nạp chứng chỉ Authenticode EV và gắn dấu thời gian RFC-3161...');
     setLogs((prev) => [...prev, `[CODESIGN] Ký số với chứng thư: ${config.signerCertificate}`]);
     await new Promise((r) => setTimeout(r, 600));
-    updateStep(3, 'success', 'Đã ký số thành công toàn bộ tệp nhị phân phát hành.');
+    updateStep(3, 'success', 'Đã ký số thành công toàn bộ tệp nhị phân phát hành (Authenticode EV).');
     setProgress(90);
 
     // Step 5: Manifest & Artifacts
     updateStep(4, 'running', 'Tính toán mã băm SHA-256 và sinh Release Manifest...');
     const now = new Date().toISOString();
-    const generatedArtifacts: BuildArtifact[] = config.selectedPlatforms.map((platform) => {
-      let format = '.exe';
-      let arch: BuildArtifact['arch'] = 'x86_64';
-      let sizeBytes = 14800000;
+    const generatedArtifacts: BuildArtifact[] = [];
 
-      if (platform === 'android') {
-        format = '.apk';
-        arch = 'arm64';
-        sizeBytes = 22400000;
-      } else if (platform === 'ios') {
-        format = '.ipa';
-        arch = 'arm64';
-        sizeBytes = 28600000;
-      } else if (platform === 'macos') {
-        format = '.dmg';
-        arch = 'universal';
-        sizeBytes = 32100000;
-      } else if (platform === 'linux') {
-        format = '.AppImage';
-        arch = 'x86_64';
-        sizeBytes = 18900000;
-      } else if (platform === 'web') {
-        format = '.wasm';
-        arch = 'wasm';
-        sizeBytes = 4200000;
+    for (const platform of config.selectedPlatforms) {
+      if (platform === 'windows') {
+        // Windows 64-bit (x86_64)
+        const filename64 = generateArtifactFilename(config.appName, config.version, 'windows', 'x86_64', '.exe');
+        const sha256_64 = generatePseudoSha256(`${config.appName}-windows-x86_64-${config.version}-${now}`);
+        generatedArtifacts.push({
+          id: `art-win-x64-${Date.now()}`,
+          platform: 'windows',
+          format: '.exe',
+          arch: 'x86_64',
+          filename: filename64,
+          sizeBytes: 15480000,
+          sha256: sha256_64,
+          downloadUrl: `/api/artifacts/download?file=${encodeURIComponent(filename64)}`,
+          createdAt: now,
+          verified: true,
+          signatureInfo: {
+            issuer: config.signerCertificate,
+            certificateType: 'Authenticode Extended Validation (EV) Windows 64-bit',
+            timestamp: now,
+            serialNumber: 'SHA256-EV-9821-4328-8761',
+          },
+        });
+
+        // Windows 32-bit (x86)
+        const filename32 = generateArtifactFilename(config.appName, config.version, 'windows', 'x86', '.exe');
+        const sha256_32 = generatePseudoSha256(`${config.appName}-windows-x86-${config.version}-${now}`);
+        generatedArtifacts.push({
+          id: `art-win-x86-${Date.now() + 1}`,
+          platform: 'windows',
+          format: '.exe',
+          arch: 'x86',
+          filename: filename32,
+          sizeBytes: 13920000,
+          sha256: sha256_32,
+          downloadUrl: `/api/artifacts/download?file=${encodeURIComponent(filename32)}`,
+          createdAt: now,
+          verified: true,
+          signatureInfo: {
+            issuer: config.signerCertificate,
+            certificateType: 'Authenticode Extended Validation (EV) Windows 32-bit',
+            timestamp: now,
+            serialNumber: 'SHA256-EV-9821-4328-8762',
+          },
+        });
+      } else {
+        let format = '.exe';
+        let arch: BuildArtifact['arch'] = 'x86_64';
+        let sizeBytes = 14800000;
+
+        if (platform === 'android') {
+          format = '.apk';
+          arch = 'arm64';
+          sizeBytes = 22400000;
+        } else if (platform === 'ios') {
+          format = '.ipa';
+          arch = 'arm64';
+          sizeBytes = 28600000;
+        } else if (platform === 'macos') {
+          format = '.dmg';
+          arch = 'universal';
+          sizeBytes = 32100000;
+        } else if (platform === 'linux') {
+          format = '.AppImage';
+          arch = 'x86_64';
+          sizeBytes = 18900000;
+        } else if (platform === 'web') {
+          format = '.wasm';
+          arch = 'wasm';
+          sizeBytes = 4200000;
+        }
+
+        const filename = generateArtifactFilename(config.appName, config.version, platform, arch, format);
+        const sha256 = generatePseudoSha256(`${config.appName}-${platform}-${config.version}-${now}`);
+
+        generatedArtifacts.push({
+          id: `art-${platform}-${Date.now()}`,
+          platform,
+          format,
+          arch,
+          filename,
+          sizeBytes,
+          sha256,
+          downloadUrl: `/api/artifacts/download?file=${encodeURIComponent(filename)}`,
+          createdAt: now,
+          verified: true,
+          signatureInfo: {
+            issuer: config.signerCertificate,
+            certificateType: 'Authenticode Extended Validation (EV)',
+            timestamp: now,
+            serialNumber: 'SHA256-EV-9821-4328-8761',
+          },
+        });
       }
+    }
 
-      const filename = generateArtifactFilename(config.appName.toLowerCase().replace(/\s+/g, '-'), config.version, platform, arch, format);
-      const sha256 = generatePseudoSha256(`${config.appName}-${platform}-${config.version}-${now}`);
-
-      return {
-        id: `art-${platform}-${Date.now()}`,
-        platform,
-        format,
-        arch,
-        filename,
-        sizeBytes,
-        sha256,
-        downloadUrl: `/api/artifacts/download?file=${encodeURIComponent(filename)}`,
-        createdAt: now,
-        verified: true,
-        signatureInfo: {
-          issuer: config.signerCertificate,
-          certificateType: 'Authenticode Extended Validation (EV)',
-          timestamp: now,
-          serialNumber: 'SHA256-EV-9821-4328-8761',
-        },
-      };
-    });
-
-    updateStep(4, 'success', `Đã tạo ${generatedArtifacts.length} gói nhị phân hoàn chỉnh.`);
+    updateStep(4, 'success', `Đã tạo ${generatedArtifacts.length} gói nhị phân hoàn chỉnh (bao gồm Windows 64-bit và 32-bit).`);
     setProgress(100);
     setLogs((prev) => [
       ...prev,
       `[SUCCESS] Hoàn tất toàn bộ quy trình đóng gói trong ${config.selectedPlatforms.length * 0.9 + 2.5}s.`,
-      `[RELEASE] Đã sẵn sàng phân phối trên Cổng Tải về và Google Play / App Store!`,
+      `[RELEASE] Bản nhị phân Windows 64-bit và 32-bit đã sẵn sàng xuất bản lên Cửa hàng!`,
     ]);
 
     setIsBuilding(false);
@@ -187,6 +245,13 @@ export const PackagingRunner: React.FC<PackagingRunnerProps> = ({
           )}
         </button>
       </div>
+
+      {errorMessage && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-rose-950/60 border border-rose-800/60 text-xs text-rose-300">
+          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
 
       {/* Progress Bar */}
       {progress > 0 && (

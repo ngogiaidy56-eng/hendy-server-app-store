@@ -4,11 +4,15 @@
  */
 
 import React, { useState } from 'react';
-import { Clipboard, Code2, Sparkles, Check, FileText } from 'lucide-react';
+import { Clipboard, Code2, Sparkles, Check, FileText, FolderTree, Layers } from 'lucide-react';
+import { scaffoldStructuredProjectFiles } from '../../utils/packaging.ts';
 
 interface CodePasteInputProps {
   onAddOrUpdateFile: (file: { name: string; language: string; content: string }) => void;
+  onScaffoldFullProject?: (files: { name: string; size: number; language: string; content: string; sha256?: string }[]) => void;
   existingFilesCount: number;
+  appName?: string;
+  version?: string;
 }
 
 const TEMPLATES: Record<string, { filename: string; language: string; code: string }> = {
@@ -89,13 +93,17 @@ extern "C" {
 
 export const CodePasteInput: React.FC<CodePasteInputProps> = ({
   onAddOrUpdateFile,
+  onScaffoldFullProject,
   existingFilesCount,
+  appName = 'Hendy App',
+  version = '1.0.0',
 }) => {
   const [filename, setFilename] = useState('main.rs');
   const [language, setLanguage] = useState('rust');
   const [code, setCode] = useState(TEMPLATES.tauri.code);
   const [copiedSuccess, setCopiedSuccess] = useState(false);
   const [addedSuccess, setAddedSuccess] = useState(false);
+  const [scaffoldedSuccess, setScaffoldedSuccess] = useState(false);
 
   const handlePasteClipboard = async () => {
     try {
@@ -147,6 +155,24 @@ export const CodePasteInput: React.FC<CodePasteInputProps> = ({
     });
     setAddedSuccess(true);
     setTimeout(() => setAddedSuccess(false), 2000);
+  };
+
+  const handleScaffoldProject = () => {
+    if (!code.trim()) return;
+    const scaffolded = scaffoldStructuredProjectFiles(
+      filename.trim() || 'main.rs',
+      language,
+      code,
+      appName,
+      version
+    );
+    if (onScaffoldFullProject) {
+      onScaffoldFullProject(scaffolded);
+    } else {
+      scaffolded.forEach((file) => onAddOrUpdateFile(file));
+    }
+    setScaffoldedSuccess(true);
+    setTimeout(() => setScaffoldedSuccess(false), 2500);
   };
 
   const lineCount = code.split('\n').length;
@@ -262,20 +288,43 @@ export const CodePasteInput: React.FC<CodePasteInputProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-4 pt-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-slate-800/60">
         <div className="text-xs text-slate-400">
-          Hiện có: <span className="text-slate-200 font-semibold">{existingFilesCount}</span> file trong dự án
+          Hiện có: <span className="text-emerald-400 font-semibold">{existingFilesCount}</span> tệp cấu trúc trong dự án
         </div>
 
-        <button
-          type="button"
-          onClick={handleSaveCode}
-          disabled={!code.trim()}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
-        >
-          {addedSuccess ? <Check className="w-4 h-4 text-white" /> : <FileText className="w-4 h-4" />}
-          <span>{addedSuccess ? 'Đã nạp file vào dự án!' : 'Nạp file này vào dự án đóng gói'}</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleSaveCode}
+            disabled={!code.trim()}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Chỉ nạp tệp mã nguồn đơn lẻ hiện tại"
+          >
+            {addedSuccess ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <FileText className="w-3.5 h-3.5 text-slate-400" />}
+            <span>{addedSuccess ? 'Đã nạp tệp!' : 'Nạp tệp đơn lẻ'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleScaffoldProject}
+            disabled={!code.trim()}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+            title="Tự động tạo cây thư mục src/, Cargo.toml/package.json, manifest.json và tệp cấu hình đóng gói"
+          >
+            {scaffoldedSuccess ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-300" />
+                <span>Đã tạo cấu trúc dự án hoàn chỉnh!</span>
+              </>
+            ) : (
+              <>
+                <FolderTree className="w-4 h-4 text-blue-200" />
+                <span>Tự động tạo thư mục & tệp đóng gói (Auto Scaffold)</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

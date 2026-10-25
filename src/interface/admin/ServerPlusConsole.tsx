@@ -12,17 +12,19 @@ import { SourceCodePackager } from '../packaging/SourceCodePackager.tsx';
 import { SecuritySastScanner } from './SecuritySastScanner.tsx';
 import { CloudCliTerminal } from './CloudCliTerminal.tsx';
 import { RuntimeSecretsInspector } from './RuntimeSecretsInspector.tsx';
-import { AuthorizedIpRule } from '../../types/index.ts';
+import { AuthorizedIpRule, ProjectTemplate } from '../../types/index.ts';
 
 interface ServerPlusConsoleProps {
   onReturnToStore: () => void;
   onOpenDriveModal?: () => void;
+  onPublishApp?: (app: ProjectTemplate) => void;
   clientIp?: string;
 }
 
 export const ServerPlusConsole: React.FC<ServerPlusConsoleProps> = ({
   onReturnToStore,
   onOpenDriveModal,
+  onPublishApp,
   clientIp = '103.149.28.4',
 }) => {
   const [activeNav, setActiveNav] = useState<'packager' | 'gateway' | 'telemetry' | 'services' | 'sast' | 'cli' | 'runtime'>('packager');
@@ -296,7 +298,7 @@ export const ServerPlusConsole: React.FC<ServerPlusConsoleProps> = ({
 
         {/* Dynamic Nav Panes */}
         {activeNav === 'packager' && (
-          <SourceCodePackager onOpenDriveModal={onOpenDriveModal} />
+          <SourceCodePackager onOpenDriveModal={onOpenDriveModal} onPublishApp={onPublishApp} />
         )}
 
         {activeNav === 'gateway' && <HendyGatewayReleases />}

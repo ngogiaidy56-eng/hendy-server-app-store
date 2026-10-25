@@ -85,14 +85,15 @@ export const SAMPLE_PROJECTS: ProjectTemplate[] = [
     platforms: [
       {
         platform: 'windows',
-        displayName: 'Windows (10 / 11 64-bit)',
+        displayName: 'Windows (10 / 11 64-bit & 32-bit)',
         iconName: 'windows',
         enabled: true,
         selectedArch: 'x86_64',
         selectedFormat: '.exe',
         signingEnabled: true,
         formats: [
-          { format: '.exe', name: 'Gói Cài Đặt Hendy Tools (.exe)', description: 'Ký số Authenticode EV chính thức', defaultSelected: true, architectures: ['x86_64'] }
+          { format: '.exe', name: 'Gói Cài Đặt Windows 64-bit (.exe)', description: 'Ký số Authenticode EV chính thức x86_64', defaultSelected: true, architectures: ['x86_64'] },
+          { format: '.exe', name: 'Gói Cài Đặt Windows 32-bit (.exe)', description: 'Tương thích Windows 32-bit / legacy x86', defaultSelected: false, architectures: ['x86'] }
         ]
       },
       {
@@ -129,6 +130,7 @@ export const SAMPLE_PROJECTS: ProjectTemplate[] = [
         title: 'Hendy Tools 3.1.2 — Ký số Authenticode EV & Cloudflare R2 Edge Delivery',
         changelog: [
           'Tích hợp chuẩn chứng chỉ số Authenticode Extended Validation (EV) trên Windows 11.',
+          'Hỗ trợ đầy đủ cả hai nền tảng kiến trúc Windows 64-bit (x86_64) và Windows 32-bit (x86).',
           'Tối ưu hóa đa luồng xử lý I/O đĩa cứng NVMe giúp tăng tốc độ dọn dẹp thêm 42%.',
           'Công cụ phân tích tiến trình thời gian thực với cảnh báo rò rỉ bộ nhớ RAM.',
           'Sửa lỗi xung đột khi chạy cùng các phần mềm ảo hóa WSL2 và Hyper-V.'
@@ -136,21 +138,39 @@ export const SAMPLE_PROJECTS: ProjectTemplate[] = [
         published: true,
         artifacts: [
           {
-            id: 'art-ht-win',
+            id: 'art-ht-win-x64',
             platform: 'windows',
             format: '.exe',
             arch: 'x86_64',
-            filename: 'HendyToolsPro-3.1.2-Setup.exe',
+            filename: 'HendyToolsPro-3.1.2-x64-Setup.exe',
             sizeBytes: 49283072,
             sha256: '9f833a69a3b684cb3e0a2944b02927e163533446955a8f57297ff055f10667e8',
-            downloadUrl: '/api/v1/releases/download?platform=windows&channel=stable',
+            downloadUrl: '/api/v1/releases/download?platform=windows&arch=x86_64&channel=stable',
             createdAt: '2026-10-15T08:00:00Z',
             verified: true,
             signatureInfo: {
               issuer: 'DigiCert Authenticode Extended Validation EV G4',
-              certificateType: 'Authenticode EV Code Signing',
+              certificateType: 'Authenticode EV Code Signing (x86_64)',
               timestamp: '2026-10-15T08:01:22Z',
               serialNumber: 'A9F2-3B81-7E4C-0D6E-5A28-190B'
+            }
+          },
+          {
+            id: 'art-ht-win-x86',
+            platform: 'windows',
+            format: '.exe',
+            arch: 'x86',
+            filename: 'HendyToolsPro-3.1.2-x86-Setup.exe',
+            sizeBytes: 42180000,
+            sha256: '7b2234091a18c64d88e0e9231fca6110f8455e89d12304918e7b165b4528ec11',
+            downloadUrl: '/api/v1/releases/download?platform=windows&arch=x86&channel=stable',
+            createdAt: '2026-10-15T08:05:00Z',
+            verified: true,
+            signatureInfo: {
+              issuer: 'DigiCert Authenticode Extended Validation EV G4',
+              certificateType: 'Authenticode EV Code Signing (x86 32-bit)',
+              timestamp: '2026-10-15T08:06:12Z',
+              serialNumber: 'A9F2-3B81-7E4C-0D6E-5A28-190C'
             }
           },
           {
@@ -421,15 +441,15 @@ export default function HyperTerminalUI() {
     platforms: [
       {
         platform: 'windows',
-        displayName: 'Windows (10 / 11 / Server 64-bit)',
+        displayName: 'Windows (10 / 11 / Server 64-bit & 32-bit)',
         iconName: 'windows',
         enabled: true,
         selectedArch: 'x86_64',
         selectedFormat: '.exe',
         signingEnabled: true,
         formats: [
-          { format: '.exe', name: 'Trình Cài Đặt NSIS Tự Động', description: 'Gói cài đặt độc lập với lối tắt Desktop và Menu Start', defaultSelected: true, architectures: ['x86_64', 'arm64'] },
-          { format: '.msi', name: 'Gói Doanh Nghiệp Windows (MSI)', description: 'Triển khai hàng loạt qua Active Directory / GPO', defaultSelected: false, architectures: ['x86_64'] }
+          { format: '.exe', name: 'Trình Cài Đặt NSIS Tự Động (64-bit & 32-bit)', description: 'Gói cài đặt độc lập với lối tắt Desktop và Menu Start', defaultSelected: true, architectures: ['x86_64', 'x86', 'arm64'] },
+          { format: '.msi', name: 'Gói Doanh Nghiệp Windows (MSI)', description: 'Triển khai hàng loạt qua Active Directory / GPO', defaultSelected: false, architectures: ['x86_64', 'x86'] }
         ]
       },
       {
@@ -494,6 +514,7 @@ export default function HyperTerminalUI() {
         title: 'Nâng Cấp Hiệu Năng GPU & Tương Thích Đa Nền Tảng Thương Mại',
         changelog: [
           'Hỗ trợ nhị phân Universal ARM64 cho Apple Silicon M-Series và Intel x86_64.',
+          'Hỗ trợ đầy đủ kiến trúc Windows 64-bit và Windows 32-bit (x86).',
           'Nâng cấp nhân PTY Rust 0.8 giảm 60% độ trễ nhập liệu dòng lệnh.',
           'Tích hợp chứng chỉ ký số thương mại EV Code Signing, loại bỏ cảnh báo SmartScreen.',
           'Đối soát mã băm SHA-256 tự động trên mọi tệp cài đặt phân phối.'
@@ -513,9 +534,27 @@ export default function HyperTerminalUI() {
             verified: true,
             signatureInfo: {
               issuer: 'DigiCert EV Code Signing CA G3',
-              certificateType: 'Extended Validation (EV)',
+              certificateType: 'Extended Validation (EV) x86_64',
               timestamp: '2026-10-22T08:02:15Z',
               serialNumber: '7A49-8F12-BC34-99DE'
+            }
+          },
+          {
+            id: 'art-win-x86-1',
+            platform: 'windows',
+            format: '.exe',
+            arch: 'x86',
+            filename: 'hyperterminal-v2.4.0-x86-setup.exe',
+            sizeBytes: 36800000,
+            sha256: '83921ba9012c8e19230581023910283019283019283019283019283019283019',
+            downloadUrl: '/api/download/hyperterminal-v2.4.0-x86-setup.exe',
+            createdAt: '2026-10-22T08:03:00Z',
+            verified: true,
+            signatureInfo: {
+              issuer: 'DigiCert EV Code Signing CA G3',
+              certificateType: 'Extended Validation (EV) x86 32-bit',
+              timestamp: '2026-10-22T08:03:15Z',
+              serialNumber: '7A49-8F12-BC34-99DF'
             }
           },
           {
