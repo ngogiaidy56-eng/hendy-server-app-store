@@ -1,0 +1,138 @@
+name: Build and publish Hendy web release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package.json'
+      - 'scripts/package-web-release.mjs'
+      - '.github/workflows/build-and-publish-release.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: SemVer release version, for example 3.2.1
+        required: true
+        type: string
+      notes:
+        description: Release notes shown in the app store
+        required: true
+        default: Web improvements and bug fixes.
+        type: string
+      publish_to_store:
+        description: Publish the real ZIP artifact to Cloudflare R2
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_VERSION: ${{ inputs.version || format('0.0.{0}-ci.{1}', github.run_number, github.run_attempt) }}
+  RELEASE_NOTES: ${{ inputs.notes || 'Automated web bundle validation build.' }}
+
+concurrency:
+  group: hendy-web-release-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  build-package:
+    name: Build and package the actual web app
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build production website
+        run: npm run build
+
+      - name: Package website and calculate checksums
+        run: npm run package:web-release
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hendy-store-web-${{ env.RELEASE_VERSION }}
+          path: |
+            release-artifacts/hendy-store-web-v${{ env.RELEASE_VERSION }}.zip
+            release-artifacts/hendy-store-web-v${{ env.RELEASE_VERSION }}.zip.sha256
+            release-artifacts/release-summary.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Prepare publisher token
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_to_store }}
+        id: publisher
+        env:
+          RELEASE_PUBLISH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN="${RELEASE_PUBLISH_TOKEN:-}"
+          if [ -z "$TOKEN" ]; then
+            TOKEN="$(openssl rand -hex 32)"
+            echo "No repository publisher token was supplied; a one-run token was generated."
+          fi
+          echo "::add-mask::$TOKEN"
+          printf 'token=%s\n' "$TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: Validate Cloudflare secret-sync credentials
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_to_store }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
+            echo "::error::Set CLOUDFLARE_API_TOKEN in GitHub Actions secrets to synchronize the Worker publisher secret."
+            exit 1
+          fi
+          if ! [[ "${CLOUDFLARE_ACCOUNT_ID:-}" =~ ^[a-fA-F0-9]{32}$ ]]; then
+            echo "::error::Set CLOUDFLARE_ACCOUNT_ID in GitHub Actions variables or secrets."
+            exit 1
+          fi
+
+      - name: Synchronize publisher secret to Cloudflare Worker
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_to_store }}
+        env:
+          RELEASE_PUBLISH_TOKEN: ${{ steps.publisher.outputs.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$RELEASE_PUBLISH_TOKEN" | npx --yes wrangler@4 secret put RELEASE_PUBLISH_TOKEN --config=wrangler.toml
+          echo "Worker publisher secret synchronized."
+
+      - name: Publish artifact to Worker API and R2
+        if: ${{ inputs.publish_to_store }}
+        env:
+          RELEASE_PUBLISH_TOKEN: ${{ steps.publisher.outputs.token }}
+          RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
+          RELEASE_NOTES: ${{ env.RELEASE_NOTES }}
+          PUBLISH_URL: https://hendy-tool-releas.ngogiaidy56.workers.dev/api/v1/ci/publish
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error \
+            -X POST "$PUBLISH_URL" \
+            -H "Authorization: Bearer $RELEASE_PUBLISH_TOKEN" \
+            -F "appName=Hendy Store Web" \
+            -F "appSlug=hendy-store-web" \
+            -F "version=$RELEASE_VERSION" \
+            -F "platform=web" \
+            -F "releaseNotes=$RELEASE_NOTES" \
+            -F "file=@release-artifacts/hendy-store-web-v$RELEASE_VERSION.zip;type=application/zip" \
+            --output publish-result.json
+          cat publish-result.json

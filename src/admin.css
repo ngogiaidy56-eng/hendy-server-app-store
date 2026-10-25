@@ -1,0 +1,11 @@
+@import "./base.css";
+
+:root { color-scheme: dark; }
+body { color: #e2e8f0; background: #0b0c12; }
+.studio-shell {
+  color-scheme: dark;
+  min-height: 100vh;
+  font-family: "Plus Jakarta Sans", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.studio-shell button, .studio-shell input, .studio-shell textarea, .studio-shell select { color-scheme: dark; }
+.studio-shell ::selection { background: #7c3aed; color: #fff; }

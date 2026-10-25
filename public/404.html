@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <title>Hendy Tools — Điều hướng tự động</title>
+  <script>
+    // Single Page Apps for GitHub Pages
+    // Preserves query strings and hash while redirecting to root
+    var pathSegmentsToKeep = 0;
+    var l = window.location;
+    var redirectPath = l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/');
+    l.replace(
+      l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+      l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?p=/' +
+      redirectPath.replace(/&/g, '~and~') +
+      (l.search ? '&q=' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+      l.hash
+    );
+  </script>
+</head>
+<body style="font-family: sans-serif; background: #06101f; color: #88a3cb; text-align: center; padding-top: 50px;">
+  <p>Đang chuyển hướng đến Hendy Tools...</p>
+</body>
+</html>

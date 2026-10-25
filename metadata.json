@@ -1,0 +1,8 @@
+{
+  "name": "Hendy Tools Platform & App Downloader",
+  "description": "Nền tảng phát hành và trung tâm tải về ứng dụng Hendy Tools cho Windows, Android, iOS cùng bộ công cụ Hendy Server Studio, hệ thống đóng gói phần mềm và tích hợp Google Drive.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

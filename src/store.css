@@ -1,0 +1,10 @@
+@import "./base.css";
+
+:root { color-scheme: light; }
+body { color: #0f172a; background: #f6f7fb; }
+.store-shell {
+  color-scheme: light;
+  min-height: 100vh;
+  font-family: "Be Vietnam Pro", "Noto Sans", "DejaVu Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.store-shell a { text-decoration: none; }

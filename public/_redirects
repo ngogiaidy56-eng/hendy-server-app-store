@@ -1,0 +1,9 @@
+# Private administration is served only by the Worker after Cloudflare Access validation.
+/admin /admin-unavailable.html 404
+/admin/* /admin-unavailable.html 404
+/admin.html /admin-unavailable.html 404
+/studio /admin-unavailable.html 404
+/studio/* /admin-unavailable.html 404
+
+# Cloudflare Pages public storefront SPA routing.
+/* /index.html 200

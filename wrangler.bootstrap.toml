@@ -1,0 +1,21 @@
+# Bootstrap-only configuration for the first Worker deployment.
+# Do not use this for normal releases; wrangler.toml validates the required Access secrets.
+name = "hendy-tool-releas"
+main = "./src/worker.ts"
+compatibility_date = "2026-10-23"
+workers_dev = true
+
+[assets]
+directory = "./.worker-dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/", "/api/*", "/health", "/healthz", "/admin*", "/studio*"]
+
+[vars]
+ENVIRONMENT = "production"
+APP_NAME = "Hendy Store — App Store & Software Releases"
+PUBLIC_BASE_URL = "https://hendy-tool-releas.ngogiaidy56.workers.dev"
+
+[[r2_buckets]]
+binding = "RELEASES_BUCKET"
+bucket_name = "hendy-tool-releases"
