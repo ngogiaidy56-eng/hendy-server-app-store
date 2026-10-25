@@ -17,7 +17,7 @@ export const SAMPLE_PROJECTS: ProjectTemplate[] = [
     currentVersion: 'v3.1.2',
     bundleIdentifier: 'com.hendytools.pro',
     publisher: 'Hendy Ngo Systems',
-    websiteUrl: 'https://hendytools.pages.dev',
+    websiteUrl: 'https://hendy-tool-releas.ngogiaidy56.workers.dev',
     githubRepo: 'https://github.com/hendyngo-servers/HendyToolsPlatform',
     securityLevel: 'Enterprise High',
     storeMeta: {
