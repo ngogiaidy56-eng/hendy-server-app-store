@@ -77,7 +77,7 @@ export const RuntimeSecretsInspector: React.FC = () => {
 
   const wranglerConfigText = generateWranglerVarsBlock(config);
 
-  const githubSecretsGuide = `# Lệnh cấu hình GitHub Secrets tự động cho Cloudflare Pages & Workers
+  const githubSecretsGuide = `# Lệnh cấu hình GitHub Secrets tự động cho Cloudflare Workers
 gh secret set CLOUDFLARE_API_TOKEN --body "cf_api_token_here"
 gh secret set CLOUDFLARE_ACCOUNT_ID --body "cf_account_id_here"
 gh secret set RELEASE_PUBLISH_TOKEN --body "hendy_admin_publish_secret_here"
@@ -104,7 +104,7 @@ gh secret set FIREBASE_CONFIG --body "$(cat firebase-applet-config.json)"
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Tự động khai báo, gắn kết (binding) và đồng bộ biến môi trường giữa Cloudflare Workers, Pages và GitHub Actions.
+                Tự động khai báo, gắn kết (binding) và đồng bộ biến môi trường giữa Cloudflare Workers và GitHub Actions.
               </p>
             </div>
           </div>

@@ -26,7 +26,7 @@ test('getRuntimeSecretsStatus accurately aggregates security bindings', () => {
   assert.equal(typeof status.hasCloudflareApiToken, 'boolean');
   assert.equal(typeof status.hasFirebaseConfig, 'boolean');
   assert.equal(status.hasFirebaseConfig, true);
-  assert.equal(status.hasGoogleDriveScope, true);
+  assert.equal(status.hasGoogleDriveScope, false, 'Browser cannot infer Google Drive permission without runtime confirmation');
   assert.equal(status.activeBindingsCount > 0, true);
   assert.equal(status.totalBindingsCount, 6);
 });

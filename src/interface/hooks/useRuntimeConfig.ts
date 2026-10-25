@@ -14,7 +14,6 @@ import {
 export interface UseRuntimeConfigReturn {
   config: RuntimeConfig;
   secretsStatus: RuntimeSecretsStatus;
-  isCloudflarePages: boolean;
   isCloudflareWorker: boolean;
   activeDomain: string;
 }
@@ -41,13 +40,11 @@ export function useRuntimeConfig(): UseRuntimeConfigReturn {
   }, []);
 
   const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
-  const isCloudflarePages = currentHost.includes('pages.dev');
   const isCloudflareWorker = currentHost.includes('workers.dev');
 
   return {
     config,
     secretsStatus,
-    isCloudflarePages,
     isCloudflareWorker,
     activeDomain: currentHost || config.cloudflareWorkerDomain,
   };

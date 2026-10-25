@@ -60,7 +60,7 @@ export const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = {
  * Resolves runtime configuration automatically from multiple tiers:
  * 1. Window injected runtime object (from Cloudflare Worker HTML rewrite)
  * 2. Vite / Build-time environment variables (import.meta.env)
- * 3. Process environment (SSR / Node.js)
+ * 3. Build-time environment variables
  * 4. Default production fallbacks
  */
 export function resolveRuntimeConfig(): RuntimeConfig {
@@ -195,7 +195,7 @@ export function getRuntimeSecretsStatus(): RuntimeSecretsStatus {
 }
 
 /**
- * Generates runtime env declarations for Cloudflare Pages / Workers
+ * Generates runtime env declarations for Cloudflare Worker
  */
 export function generateWranglerVarsBlock(config: Partial<RuntimeConfig> = {}): string {
   const merged = { ...DEFAULT_RUNTIME_CONFIG, ...config };
