@@ -128,7 +128,7 @@ mkdirSync(secretDirectory, { recursive: true });
 writeFileSync(secretFile, JSON.stringify(secretValues) + "\n", { mode: 0o600 });
 try { chmodSync(secretFile, 0o600); } catch {}
 try {
-  const args = ["--yes", "wrangler@4", "pages", "secret", "bulk", secretFile, "--project-name", projectName, "--config", "wrangler.generated.jsonc"];
+  const args = ["--yes", "wrangler@4", "pages", "secret", "bulk", secretFile, "--project-name", projectName];
   const result = spawnSync("npx", args, { encoding: "utf8", env: process.env, timeout: 120000 });
   if (result.status !== 0) {
     const message = [result.stderr, result.stdout].filter(Boolean).join("\n").slice(-3500);
