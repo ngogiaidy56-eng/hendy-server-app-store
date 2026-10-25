@@ -16,18 +16,18 @@ test('resolveRuntimeConfig returns valid default production config', () => {
   const config = resolveRuntimeConfig();
   assert.equal(typeof config.appName, 'string');
   assert.equal(['production', 'development', 'preview'].includes(config.environment), true);
-  assert.equal(config.cloudflareWorkerDomain, 'hendy-tool-releas.ngogiaidy56.workers.dev');
-  assert.equal(config.version, '3.2.0');
-  assert.equal(config.isAirGapped, true);
+  assert.equal(config.cloudflarePagesDomain, 'hendy-app-store.pages.dev');
+  assert.equal(config.version, '3.3.0');
+  assert.equal(config.isAirGapped, false);
 });
 
 test('getRuntimeSecretsStatus accurately aggregates security bindings', () => {
   const status = getRuntimeSecretsStatus();
   assert.equal(typeof status.hasCloudflareApiToken, 'boolean');
   assert.equal(typeof status.hasFirebaseConfig, 'boolean');
-  assert.equal(status.hasFirebaseConfig, true);
+  assert.equal(status.hasFirebaseConfig, false);
   assert.equal(status.hasGoogleDriveScope, false, 'Browser cannot infer Google Drive permission without runtime confirmation');
-  assert.equal(status.activeBindingsCount > 0, true);
+  assert.equal(status.activeBindingsCount, 0, 'Browser status must not assume server secrets are present');
   assert.equal(status.totalBindingsCount, 6);
 });
 
@@ -39,5 +39,5 @@ test('generateWranglerVarsBlock generates TOML formatted variables section', () 
   assert.match(toml, /\[vars\]/);
   assert.match(toml, /APP_NAME = "Custom App Test"/);
   assert.match(toml, /ENVIRONMENT = "production"/);
-  assert.match(toml, /CLOUDFLARE_WORKER_DOMAIN = "hendy-tool-releas\.ngogiaidy56\.workers\.dev"/);
+  assert.match(toml, /CLOUDFLARE_PAGES_DOMAIN = "hendy-app-store[.]pages[.]dev"/);
 });

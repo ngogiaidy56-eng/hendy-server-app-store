@@ -1,0 +1,11 @@
+{
+  "name": "@hendy/web-user",
+  "private": true,
+  "version": "3.3.0",
+  "type": "module",
+  "scripts": {},
+  "dependencies": {
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1"
+  }
+}

@@ -6,7 +6,7 @@
  */
 import StorefrontV2 from "./interface/store/StorefrontV2.tsx";
 
-export const PRIMARY_CLOUDFLARE_WORKER_DOMAIN = "hendy-tool-releas.ngogiaidy56.workers.dev";
+export const PRIMARY_CLOUDFLARE_PAGES_DOMAIN = "hendy-app-store.pages.dev";
 
 export default function App() {
   return <StorefrontV2 />;

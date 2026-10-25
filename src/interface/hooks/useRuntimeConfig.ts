@@ -24,7 +24,7 @@ export function useRuntimeConfig(): UseRuntimeConfigReturn {
 
   useEffect(() => {
     // Check if edge runtime returned updated runtime-config
-    fetch('/api/v1/runtime-config')
+    fetch('/api/v1/runtime-config', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.config) {

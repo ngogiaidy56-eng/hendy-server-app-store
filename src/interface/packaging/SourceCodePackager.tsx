@@ -162,7 +162,7 @@ export const SourceCodePackager: React.FC<SourceCodePackagerProps> = ({
       currentVersion: `v${config.version}`,
       bundleIdentifier: config.packageId,
       publisher: config.publisher,
-      websiteUrl: 'https://hendy-tool-releas.ngogiaidy56.workers.dev',
+      websiteUrl: 'https://hendy-app-store.pages.dev',
       githubRepo: `https://github.com/hendyngo-servers/${config.appName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
       securityLevel: 'Enterprise High',
       storeMeta: {

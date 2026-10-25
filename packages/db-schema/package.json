@@ -1,0 +1,10 @@
+{
+  "name": "@hendy/db-schema",
+  "private": true,
+  "version": "3.3.0",
+  "type": "module",
+  "scripts": {},
+  "files": [
+    "migrations"
+  ]
+}

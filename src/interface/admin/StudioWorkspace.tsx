@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import JSZip from 'jszip';
+import { AutomationSecretsForm } from '../../../apps/web-admin/src/components/AutomationSecretsForm.tsx';
+import { CertUploadSecure } from '../../../apps/web-admin/src/components/CertUploadSecure.tsx';
 import {
   Activity, ArrowDownToLine, ArrowLeft, ArrowRight, Boxes, Check, CheckCircle2,
   ChevronRight, CircleAlert, CloudUpload, Code2, Cpu, FileArchive, FileCode2,
@@ -70,7 +72,7 @@ export default function StudioWorkspace({ onReturnToStore }: { onReturnToStore: 
   const [loadingSources, setLoadingSources] = useState(false);
   const [bundle, setBundle] = useState<BuiltBundle | null>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const defaultStoreConfig = { brandName: 'Hendy Store', announcement: '', heroEyebrow: 'ỨNG DỤNG · CÔNG CỤ · BẢN PHÁT HÀNH', heroTitle: 'Tất cả ứng dụng', heroAccent: 'trong một nơi.', heroDescription: 'Khám phá ứng dụng và tải xuống các bản phát hành thật, với thông tin phiên bản và mã kiểm tra tệp rõ ràng.', supportUrl: '', repositoryUrl: 'https://github.com/ngogiaidy56-eng/hendy-tool-releas' };
+  const defaultStoreConfig = { brandName: 'Hendy Store', announcement: '', heroEyebrow: 'ỨNG DỤNG · CÔNG CỤ · BẢN PHÁT HÀNH', heroTitle: 'Tất cả ứng dụng', heroAccent: 'trong một nơi.', heroDescription: 'Khám phá ứng dụng và tải xuống các bản phát hành thật, với thông tin phiên bản và mã kiểm tra tệp rõ ràng.', supportUrl: '', repositoryUrl: 'https://github.com/ngogiaidy56-eng/hendy-server-app-store' };
   const [storeConfig, setStoreConfig] = useState(defaultStoreConfig);
   const [storeConfigDirty, setStoreConfigDirty] = useState(false);
   const [releases, setReleases] = useState<PublishedRelease[]>([]);
@@ -350,8 +352,8 @@ export default function StudioWorkspace({ onReturnToStore }: { onReturnToStore: 
               <div className="min-w-0"><div className="truncate text-sm font-bold sm:text-base">{navItems.find((item) => item.key === view)?.label}</div><div className="mt-0.5 hidden text-[11px] text-slate-500 sm:block">Hendy App Distribution Platform <span className="px-1.5 text-slate-700">/</span> {navItems.find((item) => item.key === view)?.sub}</div></div>
             </div>
             <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-              <div className="hidden items-center gap-2 rounded-lg border border-white/[.08] bg-white/[.03] px-3 py-2 text-[11px] text-slate-400 sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400"/><span>Cloudflare Worker API</span></div>
-              <a href="https://github.com/ngogiaidy56-eng/hendy-tool-releas" target="_blank" rel="noreferrer" className="hidden items-center gap-1.5 rounded-lg border border-white/[.1] px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-white/[.05] sm:inline-flex"><Github size={14}/> Source</a>
+              <div className="hidden items-center gap-2 rounded-lg border border-white/[.08] bg-white/[.03] px-3 py-2 text-[11px] text-slate-400 sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400"/><span>Cloudflare Pages Functions API</span></div>
+              <a href="https://github.com/ngogiaidy56-eng/hendy-server-app-store" target="_blank" rel="noreferrer" className="hidden items-center gap-1.5 rounded-lg border border-white/[.1] px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-white/[.05] sm:inline-flex"><Github size={14}/> Source</a>
               <button onClick={onReturnToStore} className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-900 transition hover:bg-violet-100"><ArrowLeft size={14}/> <span className="hidden sm:inline">Cửa hàng</span></button>
             </div>
           </header>
@@ -400,13 +402,13 @@ export default function StudioWorkspace({ onReturnToStore }: { onReturnToStore: 
 
                 <div className="grid gap-5 xl:grid-cols-[1.15fr_.85fr]">
                   <div className="rounded-2xl border border-white/[.08] bg-[#11131d] p-5 sm:p-6">
-                    <div className="flex items-center justify-between gap-3"><div><h2 className="font-extrabold">Bản phát hành gần đây</h2><p className="mt-1 text-xs text-slate-500">Dữ liệu đọc từ Worker API, không phải dữ liệu mẫu trên giao diện.</p></div><button onClick={() => { setView('releases'); void loadReleases(); }} className="text-xs font-bold text-violet-300">Xem tất cả →</button></div>
+                    <div className="flex items-center justify-between gap-3"><div><h2 className="font-extrabold">Bản phát hành gần đây</h2><p className="mt-1 text-xs text-slate-500">Dữ liệu đọc từ Cloudflare Pages Functions API, không phải dữ liệu mẫu trên giao diện.</p></div><button onClick={() => { setView('releases'); void loadReleases(); }} className="text-xs font-bold text-violet-300">Xem tất cả →</button></div>
                     {releases.length ? <div className="mt-5 divide-y divide-white/[.06]">{releases.slice(0, 4).map((item) => <div key={item.key} className="flex items-center gap-3 py-3"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[.04] text-slate-300"><Package size={17}/></div><div className="min-w-0 flex-1"><div className="truncate text-sm font-bold">{item.appName}</div><div className="mt-1 truncate text-[11px] text-slate-500">{item.fileName} · v{item.version}</div></div><span className="text-[10px] text-emerald-300">R2</span></div>)}</div> : <div className="mt-5 rounded-xl border border-dashed border-white/10 p-7 text-center"><Package size={24} className="mx-auto text-slate-600"/><p className="mt-3 text-sm font-semibold text-slate-400">Chưa có bản phát hành từ Studio</p><p className="mt-1 text-xs text-slate-600">Tạo gói nguồn, sau đó xuất bản để hiển thị tại cửa hàng.</p></div>}
                   </div>
                   <div className="rounded-2xl border border-amber-400/15 bg-amber-300/[.035] p-5 sm:p-6">
                     <div className="flex items-center gap-2 text-amber-200"><CircleAlert size={18}/><h2 className="font-extrabold">Giới hạn build cần biết</h2></div>
                     <p className="mt-3 text-sm leading-6 text-slate-400">Trình duyệt tạo gói ZIP nguồn và checksum. Nó không biên dịch chéo thành EXE, APK, IPA hoặc ký số native. Các gói đó cần Windows, Android SDK, Xcode hoặc Linux runner trong CI/CD.</p>
-                    <a href="https://github.com/ngogiaidy56-eng/hendy-tool-releas/actions/workflows/build-and-publish-release.yml" target="_blank" rel="noreferrer" className="mt-5 inline-flex items-center gap-2 text-xs font-bold text-amber-200 hover:text-amber-100"><GitBranch size={15}/> Build & Publish Web <ArrowRight size={14}/></a>
+                    <a href="https://github.com/ngogiaidy56-eng/hendy-server-app-store/actions/workflows/build-and-publish-release.yml" target="_blank" rel="noreferrer" className="mt-5 inline-flex items-center gap-2 text-xs font-bold text-amber-200 hover:text-amber-100"><GitBranch size={15}/> Build & Publish Web <ArrowRight size={14}/></a>
                   </div>
                 </div>
               </section>
@@ -492,7 +494,9 @@ export default function StudioWorkspace({ onReturnToStore }: { onReturnToStore: 
                   <div className="rounded-2xl border border-white/[.08] bg-[#11131d] p-5 sm:p-6"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-400/10 text-violet-200"><Package size={20}/></div><h2 className="mt-4 font-extrabold">Kho bản phát hành</h2><p className="mt-2 text-sm leading-6 text-slate-400">Các gói đã xuất bản được lưu trong R2 và xuất hiện trên Storefront. Có thể xem trạng thái gói, phiên bản, kích thước và SHA-256 tại mục Bản phát hành.</p><button onClick={() => setView('releases')} className="mt-4 rounded-xl border border-white/[.1] px-4 py-2.5 text-xs font-bold hover:bg-white/[.05]">Mở bản phát hành</button></div>
                   <div className="rounded-2xl border border-white/[.08] bg-[#11131d] p-5 sm:p-6"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-400/10 text-sky-200"><Store size={20}/></div><h2 className="mt-4 font-extrabold">Nội dung cửa hàng</h2><p className="mt-2 text-sm leading-6 text-slate-400">Thay đổi tên thương hiệu, thông báo, nội dung giới thiệu và liên kết hỗ trợ tại mục Giao diện cửa hàng.</p><button onClick={() => setView('storefront')} className="mt-4 rounded-xl border border-white/[.1] px-4 py-2.5 text-xs font-bold hover:bg-white/[.05]">Chỉnh sửa Storefront</button></div>
                 </div>
-                <div className="rounded-2xl border border-white/[.08] bg-[#11131d] p-5 sm:p-6"><div className="flex items-center gap-3"><Github size={19} className="text-slate-300"/><div><h2 className="font-extrabold">Source và CI/CD</h2><p className="mt-1 text-xs text-slate-500">Truy cập mã nguồn và quy trình build/release.</p></div></div><div className="mt-4 flex flex-wrap gap-2"><a href="https://github.com/ngogiaidy56-eng/hendy-tool-releas" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-white/[.1] px-4 py-2.5 text-xs font-bold hover:bg-white/[.05]"><Github size={14}/> Repository <ExternalLink size={12}/></a><a href="https://github.com/ngogiaidy56-eng/hendy-tool-releas/actions/workflows/build-and-publish-release.yml" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-white/[.1] px-4 py-2.5 text-xs font-bold hover:bg-white/[.05]"><GitBranch size={14}/> GitHub Actions <ExternalLink size={12}/></a></div></div>
+                <div className="rounded-2xl border border-white/[.08] bg-[#11131d] p-5 sm:p-6"><div className="flex items-center gap-3"><Github size={19} className="text-slate-300"/><div><h2 className="font-extrabold">Source và CI/CD</h2><p className="mt-1 text-xs text-slate-500">Truy cập mã nguồn và quy trình build/release.</p></div></div><div className="mt-4 flex flex-wrap gap-2"><a href="https://github.com/ngogiaidy56-eng/hendy-server-app-store" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-white/[.1] px-4 py-2.5 text-xs font-bold hover:bg-white/[.05]"><Github size={14}/> Repository <ExternalLink size={12}/></a><a href="https://github.com/ngogiaidy56-eng/hendy-server-app-store/actions/workflows/build-and-publish-release.yml" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-white/[.1] px-4 py-2.5 text-xs font-bold hover:bg-white/[.05]"><GitBranch size={14}/> GitHub Actions <ExternalLink size={12}/></a></div></div>
+                <AutomationSecretsForm />
+                <CertUploadSecure />
               </section>
             )}
           </div>

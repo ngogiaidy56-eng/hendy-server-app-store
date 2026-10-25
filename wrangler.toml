@@ -1,27 +1,21 @@
-# Production Worker: Storefront, Admin and API share one Cloudflare Worker.
-name = "hendy-tool-releas"
-main = "./src/worker.ts"
+# Canonical Cloudflare Pages configuration template.
+# Account-specific D1 / KV IDs are provisioned and written to ignored
+# wrangler.generated.jsonc by automation/provision-cloudflare-resources.mjs.
+name = "hendy-app-store"
+pages_build_output_dir = "./dist"
 compatibility_date = "2026-10-26"
-workers_dev = true
-
-[assets]
-directory = "./.worker-dist"
-binding = "ASSETS"
-not_found_handling = "single-page-application"
-run_worker_first = ["/", "/api/*", "/health", "/healthz", "/admin*", "/studio*"]
+compatibility_flags = ["nodejs_compat"]
 
 [vars]
-ENVIRONMENT = "production"
-APP_NAME = "Hendy Tools Platform & App Downloader"
-PUBLIC_BASE_URL = "https://hendy-tool-releas.ngogiaidy56.workers.dev"
+APP_NAME = "Hendy App Store"
+ENVIRONMENT = "development"
+PUBLIC_BASE_URL = "https://hendy-app-store.pages.dev"
 RELEASE_CHANNEL = "stable"
 R2_BUCKET_NAME = "hendy-tool-releases"
+D1_DATABASE_NAME = "hendy-app-store-db"
 
-[[r2_buckets]]
-binding = "RELEASES_BUCKET"
-bucket_name = "hendy-tool-releases"
-
-# Final deployments require these server-only secret bindings.
-# The GitHub Actions workflow creates a temporary secret file outside the repo.
-[secrets]
-required = ["CF_ACCESS_TEAM_DOMAIN", "CF_ACCESS_AUD", "CF_ACCESS_ADMIN_EMAILS"]
+# Do not hard-code account-specific resource IDs in this template.
+# The generated production config binds:
+#   DB         -> Cloudflare D1 hendy-app-store-db
+#   RELEASES   -> Cloudflare R2 hendy-tool-releases
+#   RATE_LIMITS -> Cloudflare KV hendy-app-store-rate-limits

@@ -4,16 +4,20 @@ on:
   push:
     branches: [main]
     paths:
+      - 'apps/**'
+      - 'functions/**'
+      - 'packages/**'
       - 'src/**'
       - 'public/**'
       - 'index.html'
+      - 'admin.html'
       - 'package.json'
       - 'scripts/package-web-release.mjs'
       - '.github/workflows/build-and-publish-release.yml'
   workflow_dispatch:
     inputs:
       version:
-        description: SemVer release version, for example 3.2.1
+        description: SemVer release version, for example 3.3.1
         required: true
         type: string
       notes:
@@ -42,6 +46,10 @@ jobs:
   build-package:
     name: Build and package the actual web app
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PAGES_PROJECT_NAME: hendy-app-store
+      APP_PUBLIC_HOST: ${{ vars.APP_PUBLIC_HOST || 'hendy-app-store.pages.dev' }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -71,7 +79,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Prepare publisher token
+      - name: Validate stable publisher token before publishing
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_to_store }}
         id: publisher
         env:
@@ -80,49 +88,21 @@ jobs:
         run: |
           set -euo pipefail
           TOKEN="${RELEASE_PUBLISH_TOKEN:-}"
-          if [ -z "$TOKEN" ]; then
-            TOKEN="$(openssl rand -hex 32)"
-            echo "No repository publisher token was supplied; a one-run token was generated."
+          if [ "${#TOKEN}" -lt 32 ]; then
+            echo "::error::Configure RELEASE_PUBLISH_TOKEN as a stable repository secret. It must match the Pages secret created by deploy.yml."
+            exit 1
           fi
           echo "::add-mask::$TOKEN"
           printf 'token=%s\n' "$TOKEN" >> "$GITHUB_OUTPUT"
 
-      - name: Validate Cloudflare secret-sync credentials
+      - name: Publish artifact to Cloudflare Pages Functions and R2
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_to_store }}
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
-            echo "::error::Set CLOUDFLARE_API_TOKEN in GitHub Actions secrets to synchronize the Worker publisher secret."
-            exit 1
-          fi
-          if ! [[ "${CLOUDFLARE_ACCOUNT_ID:-}" =~ ^[a-fA-F0-9]{32}$ ]]; then
-            echo "::error::Set CLOUDFLARE_ACCOUNT_ID in GitHub Actions variables or secrets."
-            exit 1
-          fi
-
-      - name: Synchronize publisher secret to Cloudflare Worker
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_to_store }}
-        env:
-          RELEASE_PUBLISH_TOKEN: ${{ steps.publisher.outputs.token }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          printf '%s' "$RELEASE_PUBLISH_TOKEN" | npx --yes wrangler@4 secret put RELEASE_PUBLISH_TOKEN --config=wrangler.toml
-          echo "Worker publisher secret synchronized."
-
-      - name: Publish artifact to Worker API and R2
-        if: ${{ inputs.publish_to_store }}
         env:
           RELEASE_PUBLISH_TOKEN: ${{ steps.publisher.outputs.token }}
           RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
           RELEASE_NOTES: ${{ env.RELEASE_NOTES }}
-          PUBLISH_URL: https://hendy-tool-releas.ngogiaidy56.workers.dev/api/v1/ci/publish
+          PUBLISH_URL: https://${{ env.APP_PUBLIC_HOST }}/api/v1/ci/publish
+        shell: bash
         run: |
           set -euo pipefail
           curl --fail-with-body --silent --show-error \

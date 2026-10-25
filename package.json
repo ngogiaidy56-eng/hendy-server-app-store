@@ -1,18 +1,27 @@
 {
   "name": "hendy-server-app-store",
   "private": true,
-  "version": "3.2.0",
+  "version": "3.3.0",
   "type": "module",
+  "workspaces": [
+    "apps/web-user",
+    "apps/web-admin",
+    "packages/shared-types",
+    "packages/db-schema"
+  ],
   "scripts": {
-    "dev": "npm run build && npx --yes wrangler@4 dev --config=wrangler.bootstrap.toml",
-    "build": "vite build && node scripts/prepare-worker-assets.mjs",
-    "preview": "npm run build && npx --yes wrangler@4 dev --config=wrangler.bootstrap.toml",
+    "dev:web": "vite --host 0.0.0.0",
+    "dev": "npm run provision:cloudflare && npm run build && npx --yes wrangler@4 pages dev dist --config=wrangler.generated.jsonc",
+    "build": "vite build && node automation/verify-build.mjs",
+    "preview": "npx --yes wrangler@4 pages dev dist --config=wrangler.generated.jsonc",
     "lint": "tsc --noEmit",
-    "test": "tsx --test src/utils/*.test.ts",
-    "deploy:worker": "npm run build && npx --yes wrangler@4 deploy --config=wrangler.toml",
-    "provision:cloudflare:resources": "node scripts/provision-cloudflare-resources.mjs",
-    "provision:cloudflare:access": "node scripts/provision-cloudflare-access.mjs",
-    "smoke:cloudflare": "node scripts/smoke-test-cloudflare.mjs",
+    "test": "tsx --test src/utils/*.test.ts tests/*.test.mjs",
+    "verify:build": "node automation/verify-build.mjs",
+    "provision:cloudflare": "node automation/provision-cloudflare-resources.mjs",
+    "provision:access": "node automation/provision-cloudflare-access.mjs",
+    "db:migrate": "npx --yes wrangler@4 d1 migrations apply hendy-app-store-db --remote --config=wrangler.generated.jsonc",
+    "deploy:pages": "npm run build && npm run provision:cloudflare && npm run db:migrate && npm run provision:access && npx --yes wrangler@4 pages deploy dist --project-name=hendy-app-store --branch=main --config=wrangler.generated.jsonc",
+    "smoke:cloudflare": "node automation/smoke-test-cloudflare.mjs",
     "package:web-release": "node scripts/package-web-release.mjs"
   },
   "dependencies": {

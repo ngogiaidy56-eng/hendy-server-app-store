@@ -43,11 +43,14 @@ export const RuntimeSecretsInspector: React.FC = () => {
     setIsRefreshing(true);
     try {
       // Test the endpoint if available
-      const res = await fetch('/api/v1/runtime-config', { method: 'GET' }).catch(() => null);
+      const res = await fetch('/api/v1/runtime-config', { method: 'GET', credentials: 'same-origin', headers: { Accept: 'application/json' } }).catch(() => null);
       if (res && res.ok) {
         const data = await res.json();
-        if (data.data) {
-          setConfig((prev) => ({ ...prev, ...data.data }));
+        if (data.config || data.data) {
+          setConfig((prev) => ({ ...prev, ...(data.config || data.data) }));
+        }
+        if (data.secrets) {
+          setSecretsStatus((prev) => ({ ...prev, ...data.secrets }));
         }
       } else {
         setConfig(resolveRuntimeConfig());
@@ -77,11 +80,13 @@ export const RuntimeSecretsInspector: React.FC = () => {
 
   const wranglerConfigText = generateWranglerVarsBlock(config);
 
-  const githubSecretsGuide = `# Lệnh cấu hình GitHub Secrets tự động cho Cloudflare Workers
-gh secret set CLOUDFLARE_API_TOKEN --body "cf_api_token_here"
-gh secret set CLOUDFLARE_ACCOUNT_ID --body "cf_account_id_here"
-gh secret set RELEASE_PUBLISH_TOKEN --body "hendy_admin_publish_secret_here"
-gh secret set FIREBASE_CONFIG --body "$(cat firebase-applet-config.json)"
+  const githubSecretsGuide = `# Thêm các giá trị trong GitHub Settings → Secrets and variables → Actions
+# CLOUDFLARE_API_TOKEN
+# CLOUDFLARE_ACCOUNT_ID (variable hoặc secret)
+# CF_ACCESS_ADMIN_EMAILS
+# RELEASE_PUBLISH_TOKEN
+# CERTIFICATE_ENCRYPTION_KEY (Base64 của 32 byte ngẫu nhiên)
+# Không đặt giá trị secret vào source code hoặc biến VITE_*
 `;
 
   return (
@@ -104,7 +109,7 @@ gh secret set FIREBASE_CONFIG --body "$(cat firebase-applet-config.json)"
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Tự động khai báo, gắn kết (binding) và đồng bộ biến môi trường giữa Cloudflare Workers và GitHub Actions.
+                Tự động khai báo, gắn kết (binding) và đồng bộ biến môi trường giữa Cloudflare Pages Functions và GitHub Actions.
               </p>
             </div>
           </div>
@@ -137,7 +142,7 @@ gh secret set FIREBASE_CONFIG --body "$(cat firebase-applet-config.json)"
             <span className="font-semibold text-emerald-400 uppercase tracking-wide">{config.environment}</span>
           </div>
           <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
-            <span className="text-slate-500 block mb-1">Tên miền Cloudflare Worker</span>
+            <span className="text-slate-500 block mb-1">Tên miền Cloudflare Pages</span>
             <span className="font-mono text-blue-400 font-medium">{config.cloudflareWorkerDomain}</span>
           </div>
           <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
@@ -233,7 +238,7 @@ gh secret set FIREBASE_CONFIG --body "$(cat firebase-applet-config.json)"
                 <tr>
                   <td className="py-2.5 px-3 text-blue-400 font-semibold">ENVIRONMENT</td>
                   <td className="py-2.5 px-3 text-emerald-400">{config.environment}</td>
-                  <td className="py-2.5 px-3 text-slate-400">Cloudflare Worker Vars / Fallback</td>
+                  <td className="py-2.5 px-3 text-slate-400">Cloudflare Pages Variables / Fallback</td>
                   <td className="py-2.5 px-3"><span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">Hoạt động</span></td>
                 </tr>
                 <tr>
@@ -251,13 +256,13 @@ gh secret set FIREBASE_CONFIG --body "$(cat firebase-applet-config.json)"
                 <tr>
                   <td className="py-2.5 px-3 text-blue-400 font-semibold">CLOUDFLARE_WORKER_DOMAIN</td>
                   <td className="py-2.5 px-3 text-blue-300 font-bold">{config.cloudflareWorkerDomain}</td>
-                  <td className="py-2.5 px-3 text-slate-400">Cloudflare Worker Public Host</td>
+                  <td className="py-2.5 px-3 text-slate-400">Cloudflare Pages Public Host</td>
                   <td className="py-2.5 px-3"><span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">Hoạt động</span></td>
                 </tr>
                 <tr>
                   <td className="py-2.5 px-3 text-blue-400 font-semibold">CLOUDFLARE_WORKER_URL</td>
                   <td className="py-2.5 px-3 text-slate-300">{config.cloudflareWorkerUrl}</td>
-                  <td className="py-2.5 px-3 text-slate-400">Workers.dev Backend Endpoint</td>
+                  <td className="py-2.5 px-3 text-slate-400">Pages Functions API Endpoint</td>
                   <td className="py-2.5 px-3"><span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">Hoạt động</span></td>
                 </tr>
                 <tr>
@@ -384,7 +389,7 @@ gh secret set FIREBASE_CONFIG --body "$(cat firebase-applet-config.json)"
           <div className="flex items-center justify-between">
             <div>
               <h4 className="font-semibold text-slate-100 text-sm">Khai Báo Cấu Hình [vars] trong wrangler.toml</h4>
-              <p className="text-xs text-slate-400">Đoạn cấu hình sẵn sàng cho tệp cấu hình của Cloudflare Worker.</p>
+              <p className="text-xs text-slate-400">Đoạn cấu hình sẵn sàng cho tệp cấu hình của Cloudflare Pages Functions.</p>
             </div>
             <button
               type="button"

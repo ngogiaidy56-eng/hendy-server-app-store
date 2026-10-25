@@ -1,4 +1,4 @@
-name: CI - Hendy Tools Platform
+name: CI - Hendy App Store
 
 on:
   pull_request:
@@ -11,13 +11,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: hendy-tools-ci-${{ github.ref }}
+  group: hendy-pages-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   verify:
-    name: Type-check, test and build
+    name: Type-check, test, verify Pages functions and build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,11 +31,14 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Type-check
+      - name: TypeScript check
         run: npm run lint
 
-      - name: Unit tests
+      - name: Unit and Pages Functions tests
         run: npm test
 
-      - name: Build frontend
+      - name: Build multi-page Store and Admin
         run: npm run build
+
+      - name: Verify Cloudflare Pages deployment shape
+        run: node automation/verify-build.mjs

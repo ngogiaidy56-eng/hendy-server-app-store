@@ -1,0 +1,127 @@
+name: Deploy Hendy App Store to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - 'functions/**'
+      - 'packages/**'
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'admin.html'
+      - 'package.json'
+      - 'wrangler.toml'
+      - 'vite.config.ts'
+      - 'tsconfig.json'
+      - 'automation/**'
+      - '.github/workflows/deploy.yml'
+      - '.github/workflows/ci-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hendy-pages-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Verify, provision and deploy Cloudflare Pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CF_ACCESS_ADMIN_EMAILS: ${{ vars.CF_ACCESS_ADMIN_EMAILS || secrets.CF_ACCESS_ADMIN_EMAILS }}
+      RELEASE_PUBLISH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
+      CERTIFICATE_ENCRYPTION_KEY: ${{ secrets.CERTIFICATE_ENCRYPTION_KEY }}
+      PAGES_PROJECT_NAME: hendy-app-store
+      R2_BUCKET_NAME: hendy-tool-releases
+      D1_DATABASE_NAME: hendy-app-store-db
+      KV_NAMESPACE_TITLE: hendy-app-store-rate-limits
+      APP_PUBLIC_HOST: ${{ vars.APP_PUBLIC_HOST || 'hendy-app-store.pages.dev' }}
+      ADDITIONAL_PUBLIC_HOSTS: ${{ vars.ADDITIONAL_PUBLIC_HOSTS || '' }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate deployment credentials without printing values
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
+            echo "::error::Set CLOUDFLARE_API_TOKEN in repository secrets."
+            exit 1
+          fi
+          if ! [[ "${CLOUDFLARE_ACCOUNT_ID:-}" =~ ^[a-fA-F0-9]{32}$ ]]; then
+            echo "::error::Set CLOUDFLARE_ACCOUNT_ID to the 32-character account ID."
+            exit 1
+          fi
+          if [ -z "${CF_ACCESS_ADMIN_EMAILS:-}" ]; then
+            echo "::error::Set CF_ACCESS_ADMIN_EMAILS to real administrator email addresses."
+            exit 1
+          fi
+          if [ "${#RELEASE_PUBLISH_TOKEN}" -lt 32 ]; then
+            echo "::error::RELEASE_PUBLISH_TOKEN must be a stable random token of at least 32 characters."
+            exit 1
+          fi
+          node --input-type=module -e 'const b=Buffer.from(process.env.CERTIFICATE_ENCRYPTION_KEY||"", "base64"); if (b.length !== 32) { console.error("CERTIFICATE_ENCRYPTION_KEY must decode to exactly 32 bytes."); process.exit(1); }'
+          echo "Required secrets are present and the certificate key has the correct length."
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: TypeScript check
+        run: npm run lint
+
+      - name: Run unit and Pages Functions tests
+        run: npm test
+
+      - name: Build Store and Admin entrypoints
+        run: |
+          npm run build
+          test -s dist/index.html
+          test -s dist/admin.html
+          node automation/verify-build.mjs
+
+      - name: Provision D1, R2, KV and Pages project
+        run: node automation/provision-cloudflare-resources.mjs
+
+      - name: Apply D1 schema migrations
+        run: npx --yes wrangler@4 d1 migrations apply hendy-app-store-db --remote --config=wrangler.generated.jsonc
+
+      - name: Create Cloudflare Access policies and upload Pages secrets
+        run: node automation/provision-cloudflare-access.mjs
+
+      - name: Deploy Pages assets and Functions
+        run: npx --yes wrangler@4 pages deploy dist --project-name=hendy-app-store --branch=main --config=wrangler.generated.jsonc
+
+      - name: Smoke-test live Pages Functions and protected Admin
+        env:
+          APP_BASE_URL: https://${{ env.APP_PUBLIC_HOST }}
+        run: npm run smoke:cloudflare
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          {
+            echo "## Hendy App Store — Cloudflare Pages"
+            echo
+            echo "- Store: https://${APP_PUBLIC_HOST}/"
+            echo "- Admin: https://${APP_PUBLIC_HOST}/admin"
+            echo "- Health: https://${APP_PUBLIC_HOST}/api/healthz"
+            echo "- Runtime readiness: https://${APP_PUBLIC_HOST}/api/v1/runtime/readiness"
+            echo "- Runtime: Cloudflare Pages Functions"
+            echo "- Storage: D1 + private R2 + KV"
+            echo "- Job result: ${{ job.status }}"
+            echo "- Secrets are not printed in this summary."
+          } >> "$GITHUB_STEP_SUMMARY"
