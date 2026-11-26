@@ -42,33 +42,20 @@ export const RuntimeSecretsInspector: React.FC = () => {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      // Test the endpoint if available
-      const res = await fetch('/api/v1/runtime-config', { method: 'GET', credentials: 'same-origin', headers: { Accept: 'application/json' } }).catch(() => null);
-      if (res && res.ok) {
-        const data = await res.json();
-        if (data.config || data.data) {
-          setConfig((prev) => ({ ...prev, ...(data.config || data.data) }));
-        }
-        if (data.secrets) {
-          setSecretsStatus((prev) => ({ ...prev, ...data.secrets }));
-        }
-      } else {
-        setConfig(resolveRuntimeConfig());
-      }
-      setSecretsStatus(getRuntimeSecretsStatus());
-      setTestResult({
-        status: 'success',
-        message: 'Đã đồng bộ và kiểm tra thành công toàn bộ biến & bí mật runtime.',
+      const response = await fetch('/api/v1/runtime-config', {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' }
       });
-    } catch (err: any) {
-      setConfig(resolveRuntimeConfig());
-      setSecretsStatus(getRuntimeSecretsStatus());
-      setTestResult({
-        status: 'success',
-        message: 'Đã giải quyết cấu hình runtime cục bộ an toàn.',
-      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || data.error || 'Render runtime API trả về HTTP ' + response.status);
+      if (data.config || data.data) setConfig((previous) => ({ ...previous, ...(data.config || data.data) }));
+      if (data.secrets) setSecretsStatus((previous) => ({ ...previous, ...data.secrets }));
+      setTestResult({ status: 'success', message: 'Đã đọc trạng thái runtime từ Render API. Giá trị secret không được hiển thị.' });
+    } catch (error) {
+      setTestResult({ status: 'error', message: error instanceof Error ? error.message : 'Không thể đọc runtime API. Hãy kiểm tra xác thực Admin.' });
     } finally {
-      setTimeout(() => setIsRefreshing(false), 300);
+      setIsRefreshing(false);
     }
   };
 
@@ -80,12 +67,13 @@ export const RuntimeSecretsInspector: React.FC = () => {
 
   const wranglerConfigText = generateWranglerVarsBlock(config);
 
-  const githubSecretsGuide = `# Thêm các giá trị trong GitHub Settings → Secrets and variables → Actions
-# CLOUDFLARE_API_TOKEN
-# CLOUDFLARE_ACCOUNT_ID (variable hoặc secret)
-# CF_ACCESS_ADMIN_EMAILS
-# RELEASE_PUBLISH_TOKEN
-# CERTIFICATE_ENCRYPTION_KEY (Base64 của 32 byte ngẫu nhiên)
+  const githubSecretsGuide = `# Cấu hình trong Render Dashboard → Web Service → Environment
+# ADMIN_USERNAME
+# ADMIN_PASSWORD (ít nhất 20 ký tự)
+# ADMIN_EMAIL
+# RELEASE_PUBLISH_TOKEN (token ngẫu nhiên tối thiểu 32 ký tự)
+# CERTIFICATE_ENCRYPTION_KEY (Base64 của đúng 32 byte ngẫu nhiên)
+# DATABASE_URL được liên kết từ Render PostgreSQL
 # Không đặt giá trị secret vào source code hoặc biến VITE_*
 `;
 
@@ -109,7 +97,7 @@ export const RuntimeSecretsInspector: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Tự động khai báo, gắn kết (binding) và đồng bộ biến môi trường giữa Cloudflare Pages Functions và GitHub Actions.
+                Kiểm tra cấu hình runtime, Render PostgreSQL và secrets mà không hiển thị giá trị bí mật.
               </p>
             </div>
           </div>
@@ -142,18 +130,18 @@ export const RuntimeSecretsInspector: React.FC = () => {
             <span className="font-semibold text-emerald-400 uppercase tracking-wide">{config.environment}</span>
           </div>
           <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
-            <span className="text-slate-500 block mb-1">Tên miền Cloudflare Pages</span>
-            <span className="font-mono text-blue-400 font-medium">{config.cloudflareWorkerDomain}</span>
+            <span className="text-slate-500 block mb-1">Tên miền Render Web Service</span>
+            <span className="font-mono text-blue-400 font-medium">{config.renderServiceDomain}</span>
           </div>
           <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
-            <span className="text-slate-500 block mb-1">R2 Storage Bucket</span>
+            <span className="text-slate-500 block mb-1">PostgreSQL Object Storage</span>
             <span className="font-mono text-purple-400">{config.r2BucketName}</span>
           </div>
           <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
             <span className="text-slate-500 block mb-1">Ranh giới Cách ly (Air-Gap)</span>
             <span className="font-medium text-emerald-400 flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              Bật (Nghiêm ngặt)
+              Không bật trên Render
             </span>
           </div>
         </div>
@@ -191,7 +179,7 @@ export const RuntimeSecretsInspector: React.FC = () => {
           }`}
         >
           <Terminal className="w-3.5 h-3.5" />
-          <span>Mẫu wrangler.toml [vars]</span>
+          <span>Render Environment</span>
         </button>
 
         <button
@@ -202,7 +190,7 @@ export const RuntimeSecretsInspector: React.FC = () => {
           }`}
         >
           <Sparkles className="w-3.5 h-3.5" />
-          <span>GitHub Actions Secrets CLI</span>
+          <span>Render Environment Guide</span>
         </button>
       </div>
 
@@ -238,7 +226,7 @@ export const RuntimeSecretsInspector: React.FC = () => {
                 <tr>
                   <td className="py-2.5 px-3 text-blue-400 font-semibold">ENVIRONMENT</td>
                   <td className="py-2.5 px-3 text-emerald-400">{config.environment}</td>
-                  <td className="py-2.5 px-3 text-slate-400">Cloudflare Pages Variables / Fallback</td>
+                  <td className="py-2.5 px-3 text-slate-400">Render Web Service Environment</td>
                   <td className="py-2.5 px-3"><span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">Hoạt động</span></td>
                 </tr>
                 <tr>
@@ -250,25 +238,25 @@ export const RuntimeSecretsInspector: React.FC = () => {
                 <tr>
                   <td className="py-2.5 px-3 text-blue-400 font-semibold">PUBLIC_BASE_URL</td>
                   <td className="py-2.5 px-3 text-slate-200">{config.appUrl}</td>
-                  <td className="py-2.5 px-3 text-slate-400">Auto-Resolved Location / Worker</td>
+                  <td className="py-2.5 px-3 text-slate-400">Render service URL</td>
                   <td className="py-2.5 px-3"><span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">Hoạt động</span></td>
                 </tr>
                 <tr>
                   <td className="py-2.5 px-3 text-blue-400 font-semibold">CLOUDFLARE_WORKER_DOMAIN</td>
-                  <td className="py-2.5 px-3 text-blue-300 font-bold">{config.cloudflareWorkerDomain}</td>
-                  <td className="py-2.5 px-3 text-slate-400">Cloudflare Pages Public Host</td>
+                  <td className="py-2.5 px-3 text-blue-300 font-bold">{config.renderServiceDomain}</td>
+                  <td className="py-2.5 px-3 text-slate-400">Render public service host</td>
                   <td className="py-2.5 px-3"><span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">Hoạt động</span></td>
                 </tr>
                 <tr>
                   <td className="py-2.5 px-3 text-blue-400 font-semibold">CLOUDFLARE_WORKER_URL</td>
-                  <td className="py-2.5 px-3 text-slate-300">{config.cloudflareWorkerUrl}</td>
-                  <td className="py-2.5 px-3 text-slate-400">Pages Functions API Endpoint</td>
+                  <td className="py-2.5 px-3 text-slate-300">{config.renderServiceUrl}</td>
+                  <td className="py-2.5 px-3 text-slate-400">Render Node.js API Endpoint</td>
                   <td className="py-2.5 px-3"><span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">Hoạt động</span></td>
                 </tr>
                 <tr>
-                  <td className="py-2.5 px-3 text-blue-400 font-semibold">R2_BUCKET_NAME</td>
+                  <td className="py-2.5 px-3 text-blue-400 font-semibold">OBJECT_STORAGE_PROVIDER</td>
                   <td className="py-2.5 px-3 text-purple-300">{config.r2BucketName}</td>
-                  <td className="py-2.5 px-3 text-slate-400">Cloudflare R2 Storage Binding</td>
+                  <td className="py-2.5 px-3 text-slate-400">PostgreSQL BYTEA Object Storage</td>
                   <td className="py-2.5 px-3"><span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">Hoạt động</span></td>
                 </tr>
                 <tr>
@@ -295,7 +283,7 @@ export const RuntimeSecretsInspector: React.FC = () => {
           <div>
             <h4 className="font-semibold text-slate-100 text-sm">Kiểm Toán Bí Mật & Khóa Xác Thực (Secrets Binding)</h4>
             <p className="text-xs text-slate-400">
-              Kiểm tra tính hiện diện và bảo vệ bí mật trong quy trình CI/CD và Cloudflare Edge Worker mà không làm lộ nội dung nhạy cảm.
+              Kiểm tra trạng thái secrets và runtime của Render mà không làm lộ nội dung nhạy cảm.
             </p>
           </div>
 
@@ -309,7 +297,7 @@ export const RuntimeSecretsInspector: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  Dùng cho GitHub Actions deployment để triển khai Pages Direct Upload và Worker.
+                  Dùng để truy cập Render Dashboard và cấu hình biến môi trường cho web service.
                 </p>
               </div>
               <div className="mt-3 pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
@@ -329,7 +317,7 @@ export const RuntimeSecretsInspector: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  Mã tài khoản Cloudflare của Hendy Ops dùng để xác định vị trí tài nguyên.
+                  Email Admin được dùng để gắn danh tính người quản trị trong các log.
                 </p>
               </div>
               <div className="mt-3 pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
@@ -349,7 +337,7 @@ export const RuntimeSecretsInspector: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  Khóa ủy quyền xuất bản tệp nhị phân .exe, .apk, .ipa trực tiếp vào R2 Gateway.
+                  Bearer token giới hạn quyền xuất bản artifact qua Render API.
                 </p>
               </div>
               <div className="mt-3 pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
@@ -383,13 +371,13 @@ export const RuntimeSecretsInspector: React.FC = () => {
         </div>
       )}
 
-      {/* Tab: Wrangler.toml */}
+      {/* Tab: Render Environment */}
       {activeTab === 'wrangler' && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="font-semibold text-slate-100 text-sm">Khai Báo Cấu Hình [vars] trong wrangler.toml</h4>
-              <p className="text-xs text-slate-400">Đoạn cấu hình sẵn sàng cho tệp cấu hình của Cloudflare Pages Functions.</p>
+              <h4 className="font-semibold text-slate-100 text-sm">Hướng dẫn biến môi trường của Render</h4>
+              <p className="text-xs text-slate-400">Đoạn hướng dẫn biến không nhạy cảm để khai báo trong Render Dashboard.</p>
             </div>
             <button
               type="button"
@@ -407,7 +395,7 @@ export const RuntimeSecretsInspector: React.FC = () => {
         </div>
       )}
 
-      {/* Tab: GitHub Actions */}
+      {/* Tab: Render Environment */}
       {activeTab === 'github' && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col gap-4">
           <div className="flex items-center justify-between">

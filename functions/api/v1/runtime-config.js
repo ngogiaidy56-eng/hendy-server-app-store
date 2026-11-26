@@ -1,12 +1,17 @@
 export async function onRequestGet(context) {
   const env = context.env || {};
+  const origin = new URL(context.request.url).origin;
+  const appUrl = env.PUBLIC_BASE_URL || origin;
   const checked = {
-    hasCloudflareApiToken: false,
-    hasCloudflareAccountId: false,
+    hasAdminUsername: Boolean(env.ADMIN_USERNAME),
+    hasAdminPassword: Boolean(env.ADMIN_PASSWORD),
+    hasAdminEmail: Boolean(env.ADMIN_EMAIL),
     hasReleasePublishToken: Boolean(env.RELEASE_PUBLISH_TOKEN),
-    hasFirebaseConfig: false,
-    hasGoogleDriveScope: false,
-    hasCfAccessConfig: Boolean(env.CF_ACCESS_TEAM_DOMAIN && env.CF_ACCESS_AUD && env.CF_ACCESS_ADMIN_EMAILS)
+    hasCertificateEncryptionKey: Boolean(env.CERTIFICATE_ENCRYPTION_KEY),
+    hasDatabaseUrl: Boolean(env.DATABASE_URL),
+    hasPostgres: Boolean(env.DB),
+    hasObjectStorage: Boolean(env.RELEASES),
+    hasRateLimiting: Boolean(env.RATE_LIMITS)
   };
   const statuses = Object.values(checked);
   const secrets = {
@@ -16,12 +21,18 @@ export async function onRequestGet(context) {
   };
   const config = {
     appName: env.APP_NAME || "Hendy App Store",
-    appUrl: env.PUBLIC_BASE_URL || new URL(context.request.url).origin,
+    appUrl,
     environment: env.ENVIRONMENT || "production",
     releaseChannel: env.RELEASE_CHANNEL || "stable",
-    cloudflarePagesDomain: new URL(env.PUBLIC_BASE_URL || context.request.url).host,
-    cloudflarePagesUrl: env.PUBLIC_BASE_URL || new URL(context.request.url).origin,
-    r2BucketName: env.R2_BUCKET_NAME || "hendy-tool-releases",
+    deploymentProvider: "Render",
+    runtime: "Node.js + Express",
+    databaseProvider: "Render PostgreSQL",
+    artifactStorageProvider: "PostgreSQL BYTEA object store",
+    adminAuthentication: "HTTP Basic Auth",
+    cloudflarePagesDomain: new URL(appUrl).host,
+    cloudflarePagesUrl: appUrl,
+    cloudflareWorkerDomain: new URL(appUrl).host,
+    r2BucketName: "Render PostgreSQL object store",
     version: "3.3.0",
     isAirGapped: false,
     apiBaseUrl: "/api"

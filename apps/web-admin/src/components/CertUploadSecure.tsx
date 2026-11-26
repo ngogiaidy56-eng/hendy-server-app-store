@@ -50,7 +50,7 @@ export function CertUploadSecure() {
   return <section className="rounded-2xl border border-white/[.08] bg-[#11131d] p-5 sm:p-6">
     <div className="text-xs font-bold uppercase tracking-[.18em] text-violet-300">Certificate vault</div>
     <h2 className="mt-2 text-lg font-extrabold">Nạp chứng thư và hồ sơ ký số</h2>
-    <p className="mt-2 text-sm leading-6 text-slate-400">Hỗ trợ .p12, .pfx, .cer, .crt và .mobileprovision. Mã hóa AES-GCM phía server trước khi ghi vào R2 riêng tư; không có API tải tệp chứng thư gốc.</p>
+    <p className="mt-2 text-sm leading-6 text-slate-400">Hỗ trợ .p12, .pfx, .cer, .crt và .mobileprovision. Mã hóa AES-GCM phía server trước khi ghi vào kho PostgreSQL riêng tư; không có API tải tệp chứng thư gốc.</p>
     <div className="mt-4 flex flex-col gap-3 sm:flex-row">
       <input type="file" accept=".p12,.pfx,.cer,.crt,.mobileprovision" onChange={(event) => setFile(event.target.files?.[0] || null)} className="min-w-0 flex-1 rounded-xl border border-white/[.1] bg-[#0b0c12] px-3 py-2.5 text-xs text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-2 file:text-xs file:font-bold file:text-white"/>
       <button type="button" onClick={() => void upload()} disabled={!file || busy || (file?.size ?? 0) < 1 || (file?.size ?? 0) > 20 * 1024 * 1024} className="rounded-xl bg-violet-500 px-4 py-2.5 text-xs font-extrabold text-white hover:bg-violet-400 disabled:opacity-40">{busy ? "Đang mã hóa và tải…" : "Tải chứng thư an toàn"}</button>

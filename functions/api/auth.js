@@ -6,13 +6,14 @@ export async function onRequestGet(context) {
   const env = context.env || {};
   return Response.json({
     success: true,
-    user: { email: identity.email, authenticated: true },
+    user: { email: identity.email, authenticated: true, provider: identity.provider || "render-basic-auth" },
     bindings: {
-      CF_ACCESS_TEAM_DOMAIN: Boolean(env.CF_ACCESS_TEAM_DOMAIN),
-      CF_ACCESS_AUD: Boolean(env.CF_ACCESS_AUD),
-      CF_ACCESS_ADMIN_EMAILS: Boolean(env.CF_ACCESS_ADMIN_EMAILS),
+      ADMIN_USERNAME: Boolean(env.ADMIN_USERNAME),
+      ADMIN_PASSWORD: Boolean(env.ADMIN_PASSWORD),
+      ADMIN_EMAIL: Boolean(env.ADMIN_EMAIL),
       RELEASE_PUBLISH_TOKEN: Boolean(env.RELEASE_PUBLISH_TOKEN),
       CERTIFICATE_ENCRYPTION_KEY: Boolean(env.CERTIFICATE_ENCRYPTION_KEY),
+      DATABASE_URL: Boolean(env.DATABASE_URL),
       DB: Boolean(env.DB),
       RELEASES: Boolean(env.RELEASES),
       RATE_LIMITS: Boolean(env.RATE_LIMITS)

@@ -1,12 +1,12 @@
 export async function onRequestGet(context) {
-  const cf = context.request.cf || {};
+  const url = new URL(context.request.url);
   return Response.json({
     success: true,
-    runtime: "cloudflare-pages-functions",
-    edgeLocation: cf.colo || null,
-    country: cf.country || null,
-    asn: cf.asn || null,
-    tlsVersion: cf.tlsVersion || null,
+    runtime: "render-node-express",
+    provider: "render",
+    host: url.host,
+    protocol: url.protocol.replace(":", ""),
+    userAgent: (context.request.headers.get("user-agent") || "").slice(0, 180),
     timestamp: new Date().toISOString()
   }, { headers: { "Cache-Control": "no-store" } });
 }

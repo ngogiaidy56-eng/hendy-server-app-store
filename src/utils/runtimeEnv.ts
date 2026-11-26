@@ -1,11 +1,10 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- */
-
-/**
- * Cloudflare Pages Functions Runtime Environment & Secrets Binding Engine.
- * Tự động tạo, khai báo, gắn kết (bind) biến môi trường và bí mật (secrets) tại thời điểm thực thi (runtime).
+ *
+ * Render Node.js runtime configuration. This module only exposes public
+ * application metadata; secrets are inspected server-side and never sent
+ * to browser bundles.
  */
 
 export interface RuntimeConfig {
@@ -13,8 +12,15 @@ export interface RuntimeConfig {
   appUrl: string;
   environment: 'production' | 'preview' | 'development';
   releaseChannel: 'stable' | 'beta' | 'nightly';
+  renderServiceDomain: string;
+  renderServiceUrl: string;
+  deploymentProvider: string;
+  databaseProvider: string;
+  objectStorageName: string;
+  // Legacy UI aliases kept to avoid breaking older Studio modules.
   cloudflarePagesDomain: string;
   cloudflarePagesUrl: string;
+  cloudflareWorkerDomain: string;
   r2BucketName: string;
   version: string;
   isAirGapped: boolean;
@@ -28,11 +34,13 @@ export interface RuntimeSecretsStatus {
   hasFirebaseConfig: boolean;
   hasGoogleDriveScope: boolean;
   hasCfAccessConfig: boolean;
+  hasRenderAdminConfig: boolean;
+  hasDatabaseUrl: boolean;
+  hasCertificateEncryptionKey: boolean;
   activeBindingsCount: number;
   totalBindingsCount: number;
 }
 
-// Global window augmentation for dynamic runtime injection
 declare global {
   interface Window {
     __HENDY_RUNTIME_CONFIG__?: Partial<RuntimeConfig>;
@@ -40,33 +48,29 @@ declare global {
   }
 }
 
-/**
- * Default fallback configuration for Cloudflare Pages runtime
- */
+const LOCAL_URL = 'http://localhost:10000';
+
 export const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = {
   appName: 'Hendy App Store',
-  appUrl: 'https://hendy-app-store.pages.dev',
+  appUrl: LOCAL_URL,
   environment: 'production',
   releaseChannel: 'stable',
-  cloudflarePagesDomain: 'hendy-app-store.pages.dev',
-  cloudflarePagesUrl: 'https://hendy-app-store.pages.dev',
-  r2BucketName: 'hendy-tool-releases',
+  renderServiceDomain: 'localhost:10000',
+  renderServiceUrl: LOCAL_URL,
+  deploymentProvider: 'Render',
+  databaseProvider: 'Render PostgreSQL',
+  objectStorageName: 'Render PostgreSQL object store',
+  cloudflarePagesDomain: 'localhost:10000',
+  cloudflarePagesUrl: LOCAL_URL,
+  cloudflareWorkerDomain: 'localhost:10000',
+  r2BucketName: 'Render PostgreSQL object store',
   version: '3.3.0',
   isAirGapped: false,
   apiBaseUrl: '/api',
 };
 
-/**
- * Resolves runtime configuration automatically from multiple tiers:
- * 1. Window injected runtime object (from Cloudflare Pages Functions HTML rewrite)
- * 2. Vite / Build-time environment variables (import.meta.env)
- * 3. Build-time environment variables
- * 4. Default production fallbacks
- */
 export function resolveRuntimeConfig(): RuntimeConfig {
   const windowConfig = typeof window !== 'undefined' ? window.__HENDY_RUNTIME_CONFIG__ || {} : {};
-
-  // Resolve from import.meta.env safely
   let metaEnv: Record<string, string> = {};
   try {
     if (typeof import.meta !== 'undefined' && import.meta.env) {
@@ -76,135 +80,90 @@ export function resolveRuntimeConfig(): RuntimeConfig {
     metaEnv = {};
   }
 
-  // Resolve from process.env safely
   let procEnv: Record<string, string | undefined> = {};
   try {
-    if (typeof process !== 'undefined' && process.env) {
-      procEnv = process.env;
-    }
+    if (typeof process !== 'undefined' && process.env) procEnv = process.env;
   } catch {
     procEnv = {};
   }
 
-  const appName =
-    windowConfig.appName ||
-    metaEnv.VITE_APP_NAME ||
-    procEnv.APP_NAME ||
-    DEFAULT_RUNTIME_CONFIG.appName;
-
-  const appUrl =
-    windowConfig.appUrl ||
-    metaEnv.VITE_APP_URL ||
-    procEnv.APP_URL ||
-    (typeof window !== 'undefined' ? window.location.origin : DEFAULT_RUNTIME_CONFIG.appUrl);
-
-  const rawEnv =
-    windowConfig.environment ||
-    metaEnv.VITE_ENVIRONMENT ||
-    metaEnv.MODE ||
-    procEnv.NODE_ENV ||
-    'production';
-
+  const browserOrigin = typeof window !== 'undefined' ? window.location.origin : LOCAL_URL;
+  const appName = windowConfig.appName || metaEnv.VITE_APP_NAME || procEnv.APP_NAME || DEFAULT_RUNTIME_CONFIG.appName;
+  const appUrl = windowConfig.appUrl || metaEnv.VITE_APP_URL || procEnv.PUBLIC_BASE_URL || browserOrigin;
+  const rawEnv = windowConfig.environment || metaEnv.VITE_ENVIRONMENT || metaEnv.MODE || procEnv.NODE_ENV || 'production';
   const environment: RuntimeConfig['environment'] =
-    rawEnv === 'development' || rawEnv === 'dev'
-      ? 'development'
-      : rawEnv === 'preview' || rawEnv === 'staging'
-      ? 'preview'
-      : 'production';
-
+    rawEnv === 'development' || rawEnv === 'dev' ? 'development' :
+    rawEnv === 'preview' || rawEnv === 'staging' ? 'preview' : 'production';
+  const channel = windowConfig.releaseChannel || metaEnv.VITE_RELEASE_CHANNEL || 'stable';
   const releaseChannel: RuntimeConfig['releaseChannel'] =
-    (windowConfig.releaseChannel as any) ||
-    (metaEnv.VITE_RELEASE_CHANNEL as any) ||
-    'stable';
+    channel === 'beta' || channel === 'nightly' ? channel : 'stable';
 
-  const cloudflarePagesDomain =
-    windowConfig.cloudflarePagesDomain ||
-    metaEnv.VITE_CLOUDFLARE_PAGES_DOMAIN ||
-    DEFAULT_RUNTIME_CONFIG.cloudflarePagesDomain;
-
-  const cloudflarePagesUrl =
-    windowConfig.cloudflarePagesUrl ||
-    metaEnv.VITE_CLOUDFLARE_PAGES_URL ||
-    DEFAULT_RUNTIME_CONFIG.cloudflarePagesUrl;
-
-  const r2BucketName =
-    windowConfig.r2BucketName ||
-    metaEnv.VITE_R2_BUCKET_NAME ||
-    DEFAULT_RUNTIME_CONFIG.r2BucketName;
-
-  const version =
-    windowConfig.version ||
-    metaEnv.VITE_APP_VERSION ||
-    DEFAULT_RUNTIME_CONFIG.version;
+  let serviceDomain = browserOrigin;
+  try { serviceDomain = new URL(appUrl).host; } catch {}
+  const renderServiceUrl = windowConfig.renderServiceUrl || appUrl;
+  const renderServiceDomain = windowConfig.renderServiceDomain || serviceDomain;
+  const objectStorageName = windowConfig.objectStorageName || 'Render PostgreSQL object store';
+  const version = windowConfig.version || metaEnv.VITE_APP_VERSION || DEFAULT_RUNTIME_CONFIG.version;
 
   return {
     appName,
     appUrl,
     environment,
     releaseChannel,
-    cloudflarePagesDomain,
-    cloudflarePagesUrl,
-    r2BucketName,
+    renderServiceDomain,
+    renderServiceUrl,
+    deploymentProvider: 'Render',
+    databaseProvider: 'Render PostgreSQL',
+    objectStorageName,
+    cloudflarePagesDomain: renderServiceDomain,
+    cloudflarePagesUrl: renderServiceUrl,
+    cloudflareWorkerDomain: renderServiceDomain,
+    r2BucketName: objectStorageName,
     version,
     isAirGapped: false,
     apiBaseUrl: '/api',
   };
 }
 
-/**
- * Checks and inspects runtime secrets binding status without exposing sensitive secret values
- */
 export function getRuntimeSecretsStatus(): RuntimeSecretsStatus {
-  const windowStatus = typeof window !== 'undefined' ? window.__HENDY_SECRETS_STATUS__ || {} : {};
-
-  // In production browser, check presence of injected or known bindings
-  const hasCloudflareApiToken = Boolean(
-    windowStatus.hasCloudflareApiToken ?? false // Deployment tokens are never exposed to the browser
-  );
-  const hasCloudflareAccountId = Boolean(
-    windowStatus.hasCloudflareAccountId ?? false
-  );
-  const hasReleasePublishToken = Boolean(
-    windowStatus.hasReleasePublishToken ?? false
-  );
-  const hasFirebaseConfig = Boolean(windowStatus.hasFirebaseConfig ?? false);
-  const hasGoogleDriveScope = Boolean(windowStatus.hasGoogleDriveScope ?? false);
-  const hasCfAccessConfig = Boolean(windowStatus.hasCfAccessConfig ?? false);
-
-  const bindings = [
-    hasCloudflareApiToken,
-    hasCloudflareAccountId,
-    hasReleasePublishToken,
-    hasFirebaseConfig,
-    hasGoogleDriveScope,
-    hasCfAccessConfig,
-  ];
-
-  const activeBindingsCount = bindings.filter(Boolean).length;
-
-  return {
-    hasCloudflareApiToken,
-    hasCloudflareAccountId,
-    hasReleasePublishToken,
-    hasFirebaseConfig,
-    hasGoogleDriveScope,
-    hasCfAccessConfig,
-    activeBindingsCount,
-    totalBindingsCount: bindings.length,
+  const status = typeof window !== 'undefined' ? window.__HENDY_SECRETS_STATUS__ || {} : {};
+  const values = {
+    hasCloudflareApiToken: false,
+    hasCloudflareAccountId: false,
+    hasReleasePublishToken: Boolean(status.hasReleasePublishToken ?? false),
+    hasFirebaseConfig: Boolean(status.hasFirebaseConfig ?? false),
+    hasGoogleDriveScope: Boolean(status.hasGoogleDriveScope ?? false),
+    hasCfAccessConfig: false,
+    hasRenderAdminConfig: Boolean(status.hasRenderAdminConfig ?? false),
+    hasDatabaseUrl: Boolean(status.hasDatabaseUrl ?? false),
+    hasCertificateEncryptionKey: Boolean(status.hasCertificateEncryptionKey ?? false),
   };
+  const activeBindingsCount = Object.values(values).filter(Boolean).length;
+  return { ...values, activeBindingsCount, totalBindingsCount: Object.keys(values).length };
 }
 
 /**
- * Generates runtime env declarations for Cloudflare Pages Functions
+ * Backward-compatible export name. Returns a safe Render environment guide,
+ * not Wrangler configuration and never includes secret values.
  */
 export function generateWranglerVarsBlock(config: Partial<RuntimeConfig> = {}): string {
   const merged = { ...DEFAULT_RUNTIME_CONFIG, ...config };
-  return `[vars]
-ENVIRONMENT = "${merged.environment}"
-APP_NAME = "${merged.appName}"
-PUBLIC_BASE_URL = "${merged.appUrl}"
-RELEASE_CHANNEL = "${merged.releaseChannel}"
-CLOUDFLARE_PAGES_DOMAIN = "${merged.cloudflarePagesDomain}"
-R2_BUCKET_NAME = "${merged.r2BucketName}"
-`;
+  return [
+    '# Configure these non-secret values in Render Dashboard > Environment',
+    'NODE_ENV=production',
+    'APP_NAME=' + merged.appName,
+    'ENVIRONMENT=' + merged.environment,
+    'RELEASE_CHANNEL=' + merged.releaseChannel,
+    'PUBLIC_BASE_URL=' + merged.appUrl,
+    'PORT=10000',
+    '',
+    '# Configure secrets separately in Render Environment; do not expose them to Vite:',
+    '# ADMIN_USERNAME',
+    '# ADMIN_PASSWORD',
+    '# ADMIN_EMAIL',
+    '# RELEASE_PUBLISH_TOKEN',
+    '# CERTIFICATE_ENCRYPTION_KEY',
+    '# DATABASE_URL is linked automatically from the Render PostgreSQL resource',
+    ''
+  ].join('\n');
 }

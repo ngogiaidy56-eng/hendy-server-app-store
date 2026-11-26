@@ -56,7 +56,7 @@ const outDir = resolve(process.env.RELEASE_OUTPUT_DIR || "release-artifacts");
 await mkdir(outDir, { recursive: true });
 const filename = "hendy-store-web-v" + version + ".zip";
 const archive = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE", compressionOptions: { level: 8 } });
-if (archive.byteLength > 25 * 1024 * 1024) throw new Error("ZIP exceeds the Worker direct-upload limit of 25 MB.");
+if (archive.byteLength > 25 * 1024 * 1024) throw new Error("ZIP exceeds the Render API upload limit of 25 MB.");
 const outPath = join(outDir, filename);
 await writeFile(outPath, archive);
 const archiveHash = hash(archive);

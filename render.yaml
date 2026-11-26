@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: hendy-server-app-store
+    runtime: node
+    plan: starter
+    region: singapore
+    branch: main
+    buildCommand: npm install --no-audit --no-fund && npm run build
+    preDeployCommand: npm run db:migrate
+    startCommand: npm start
+    healthCheckPath: /api/healthz
+    autoDeployTrigger: commit
+    maxShutdownDelaySeconds: 60
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_NAME
+        value: Hendy App Store
+      - key: ENVIRONMENT
+        value: production
+      - key: RELEASE_CHANNEL
+        value: stable
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hendy-app-store-db
+          property: connectionString
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: RELEASE_PUBLISH_TOKEN
+        sync: false
+      - key: CERTIFICATE_ENCRYPTION_KEY
+        sync: false
+
+databases:
+  - name: hendy-app-store-db
+    databaseName: hendy_app_store
+    user: hendy_app_store_user
+    plan: basic-1gb
+    diskSizeGB: 15
+    region: singapore

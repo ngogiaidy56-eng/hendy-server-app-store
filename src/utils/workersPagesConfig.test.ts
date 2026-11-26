@@ -13,60 +13,54 @@ import {
   getSecurityAuditReport,
 } from "./workersPagesConfig.ts";
 
-test("deployment metadata targets Cloudflare Pages Functions, D1, R2 and KV", () => {
+test("deployment metadata targets the Render web service and PostgreSQL", () => {
   const config = getDefaultDeploymentConfig();
-  assert.equal(config.projectName, "hendy-app-store");
-  assert.equal(config.r2Bucket, "hendy-tool-releases");
-  assert.equal(config.kvNamespace, "hendy-app-store-rate-limits");
+  assert.equal(config.projectName, "hendy-server-app-store");
+  assert.equal(config.r2Bucket, "Render PostgreSQL object store");
+  assert.equal(config.kvNamespace, "PostgreSQL kv_store adapter");
   assert.equal(config.routes.length, 2);
   assert.equal(config.apiEndpoint, "/api/v1/published-releases");
-  assert.match(config.pagesDomain, /pages\.dev/);
-  assert.match(config.workersRoute, /Pages Functions/);
+  assert.match(config.pagesDomain, /onrender\.com/);
+  assert.match(config.workersRoute, /Node\.js \+ Express/);
 });
 
-test("generated Wrangler configuration uses the Pages build output, not a standalone Worker", () => {
+test("generated environment guide contains Render settings, never Wrangler bindings", () => {
   const config = getDefaultDeploymentConfig();
-  const toml = generateWranglerConfig(config);
-  assert.match(toml, /pages_build_output_dir = "\.\/dist"/);
-  assert.match(toml, /hendy-app-store/);
-  assert.match(toml, /D1|KV|R2/);
-  assert.doesNotMatch(toml, /^main\s*=/m);
+  const env = generateWranglerConfig(config);
+  assert.match(env, /Render Dashboard/);
+  assert.match(env, /DATABASE_URL/);
+  assert.match(env, /ADMIN_PASSWORD/);
+  assert.doesNotMatch(env, /pages_build_output_dir|\[vars\]/);
 });
 
-test("generated Pages workflow runs build and Wrangler Pages deploy", () => {
+test("generated CI workflow builds and tests the Render service without Cloudflare deploy", () => {
   const yaml = generatePagesWorkflowYaml();
   assert.match(yaml, /actions\/checkout@v4/);
   assert.match(yaml, /node-version/);
-  assert.match(yaml, /wrangler@4 pages deploy/);
-  assert.match(yaml, /automation\/provision-cloudflare-resources\.mjs/);
+  assert.match(yaml, /npm run build/);
+  assert.match(yaml, /npm test/);
+  assert.doesNotMatch(yaml, /wrangler@4|Cloudflare Pages/);
 });
 
-test("repository tree describes the split storefront/admin and serverless backend", () => {
+test("repository tree describes the Render server, Store, Admin and PostgreSQL", () => {
   const tree = getWorkersPagesDirectoryTree();
   assert.equal(tree.type, "directory");
   const names = tree.children?.map((child) => child.name);
   assert.ok(names?.includes("apps/web-user"));
   assert.ok(names?.includes("apps/web-admin"));
-  assert.ok(names?.includes("functions"));
+  assert.ok(names?.includes("server"));
+  assert.ok(names?.includes("render.yaml"));
   assert.ok(names?.includes("packages/db-schema/migrations"));
-  assert.ok(names?.includes("wrangler.toml"));
+  assert.ok(!names?.includes("wrangler.toml"));
 });
 
-test("architecture documents Pages Functions with D1, R2, KV and Access", () => {
-  const markdown = generateSystemArchitectureMarkdown(getDefaultDeploymentConfig());
-  assert.match(markdown, /Cloudflare Pages/);
-  assert.match(markdown, /Pages Functions/);
-  assert.match(markdown, /D1/);
-  assert.match(markdown, /R2/);
-  assert.match(markdown, /KV/);
-  assert.match(markdown, /Access/);
-});
-
-test("security audit report includes key production controls", () => {
+test("architecture and security audit describe Render services and Admin Basic Auth", () => {
+  const config = getDefaultDeploymentConfig();
+  const markdown = generateSystemArchitectureMarkdown(config);
   const audit = getSecurityAuditReport();
-  assert.ok(audit.sourceCodeExposureRisk);
-  assert.ok(audit.sourceEncryption);
-  assert.ok(audit.interfaceIsolation);
-  assert.ok(audit.apiGatewayProtection);
-  assert.ok(audit.distributionStorage);
+  assert.match(markdown, /Render Web Service/);
+  assert.match(markdown, /Render PostgreSQL/);
+  assert.match(markdown, /HTTP Basic Auth/);
+  assert.match(audit.apiGatewayProtection, /Basic Auth/);
+  assert.match(audit.distributionStorage, /PostgreSQL/);
 });

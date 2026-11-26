@@ -14,6 +14,8 @@ import {
 export interface UseRuntimeConfigReturn {
   config: RuntimeConfig;
   secretsStatus: RuntimeSecretsStatus;
+  isRenderService: boolean;
+  /** @deprecated Kept for compatibility with older UI components; always false on Render. */
   isCloudflareWorker: boolean;
   activeDomain: string;
 }
@@ -23,29 +25,28 @@ export function useRuntimeConfig(): UseRuntimeConfigReturn {
   const [secretsStatus, setSecretsStatus] = useState<RuntimeSecretsStatus>(getRuntimeSecretsStatus);
 
   useEffect(() => {
-    // Check if edge runtime returned updated runtime-config
     fetch('/api/v1/runtime-config', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
-      .then((res) => (res.ok ? res.json() : null))
+      .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
-        if (data?.config) {
-          setConfig((prev) => ({ ...prev, ...data.config }));
+        if (data?.config || data?.data) {
+          setConfig((previous) => ({ ...previous, ...(data.config || data.data) }));
         }
         if (data?.secrets) {
-          setSecretsStatus((prev) => ({ ...prev, ...data.secrets }));
+          setSecretsStatus((previous) => ({ ...previous, ...data.secrets }));
         }
       })
       .catch(() => {
-        // Fallback gracefully to resolved local config
+        // The public Store can operate with local public config; Admin checks remain server-protected.
       });
   }, []);
 
   const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
-  const isCloudflareWorker = currentHost.includes('workers.dev');
-
+  const isRenderService = currentHost.endsWith('.onrender.com') || currentHost === 'onrender.com';
   return {
     config,
     secretsStatus,
-    isCloudflareWorker,
-    activeDomain: currentHost || config.cloudflareWorkerDomain,
+    isRenderService,
+    isCloudflareWorker: false,
+    activeDomain: currentHost || config.renderServiceDomain,
   };
 }

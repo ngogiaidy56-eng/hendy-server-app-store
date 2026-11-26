@@ -1,16 +1,16 @@
 export async function onRequestGet(context) {
   const env = context.env || {};
   const bindings = {
-    d1: Boolean(env.DB?.prepare),
-    r2: Boolean(env.RELEASES?.get && env.RELEASES?.head && env.RELEASES?.list),
-    kv: Boolean(env.RATE_LIMITS?.get && env.RATE_LIMITS?.put)
+    postgres: Boolean(env.DB?.prepare),
+    objectStorage: Boolean(env.RELEASES?.get && env.RELEASES?.head && env.RELEASES?.list && env.RELEASES?.put),
+    rateLimiting: Boolean(env.RATE_LIMITS?.get && env.RATE_LIMITS?.put && env.RATE_LIMITS?.consume)
   };
   const healthy = Object.values(bindings).every(Boolean);
-
   return Response.json({
     status: healthy ? "healthy" : "degraded",
     service: env.APP_NAME || "Hendy App Store",
-    runtime: "cloudflare-pages-functions",
+    runtime: "render-node-express",
+    provider: "render",
     environment: env.ENVIRONMENT || "production",
     timestamp: new Date().toISOString(),
     bindings

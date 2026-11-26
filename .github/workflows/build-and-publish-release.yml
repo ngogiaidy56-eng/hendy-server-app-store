@@ -1,19 +1,6 @@
-name: Build and publish Hendy web release
+name: Build and publish Hendy web release (Render)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'apps/**'
-      - 'functions/**'
-      - 'packages/**'
-      - 'src/**'
-      - 'public/**'
-      - 'index.html'
-      - 'admin.html'
-      - 'package.json'
-      - 'scripts/package-web-release.mjs'
-      - '.github/workflows/build-and-publish-release.yml'
   workflow_dispatch:
     inputs:
       version:
@@ -26,7 +13,7 @@ on:
         default: Web improvements and bug fixes.
         type: string
       publish_to_store:
-        description: Publish the real ZIP artifact to Cloudflare R2
+        description: Publish the actual ZIP to the Render app store
         required: true
         default: false
         type: boolean
@@ -35,21 +22,14 @@ permissions:
   contents: read
 
 env:
-  RELEASE_VERSION: ${{ inputs.version || format('0.0.{0}-ci.{1}', github.run_number, github.run_attempt) }}
-  RELEASE_NOTES: ${{ inputs.notes || 'Automated web bundle validation build.' }}
-
-concurrency:
-  group: hendy-web-release-${{ github.run_id }}
-  cancel-in-progress: false
+  RELEASE_VERSION: ${{ inputs.version }}
+  RELEASE_NOTES: ${{ inputs.notes }}
 
 jobs:
   build-package:
     name: Build and package the actual web app
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      PAGES_PROJECT_NAME: hendy-app-store
-      APP_PUBLIC_HOST: ${{ vars.APP_PUBLIC_HOST || 'hendy-app-store.pages.dev' }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -79,34 +59,31 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Validate stable publisher token before publishing
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_to_store }}
-        id: publisher
+      - name: Validate publisher configuration
+        if: ${{ inputs.publish_to_store }}
         env:
           RELEASE_PUBLISH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
-        shell: bash
+          HENDY_APP_URL: ${{ vars.HENDY_APP_URL }}
         run: |
           set -euo pipefail
-          TOKEN="${RELEASE_PUBLISH_TOKEN:-}"
-          if [ "${#TOKEN}" -lt 32 ]; then
-            echo "::error::Configure RELEASE_PUBLISH_TOKEN as a stable repository secret. It must match the Pages secret created by deploy.yml."
+          if [ -z "${HENDY_APP_URL:-}" ]; then
+            echo "::error::Set HENDY_APP_URL in repository Actions variables to the live Render service URL."
             exit 1
           fi
-          echo "::add-mask::$TOKEN"
-          printf 'token=%s\n' "$TOKEN" >> "$GITHUB_OUTPUT"
+          if [ "${#RELEASE_PUBLISH_TOKEN}" -lt 32 ]; then
+            echo "::error::Configure RELEASE_PUBLISH_TOKEN as a repository Actions secret."
+            exit 1
+          fi
 
-      - name: Publish artifact to Cloudflare Pages Functions and R2
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_to_store }}
+      - name: Publish ZIP to Render API
+        if: ${{ inputs.publish_to_store }}
         env:
-          RELEASE_PUBLISH_TOKEN: ${{ steps.publisher.outputs.token }}
-          RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
-          RELEASE_NOTES: ${{ env.RELEASE_NOTES }}
-          PUBLISH_URL: https://${{ env.APP_PUBLIC_HOST }}/api/v1/ci/publish
-        shell: bash
+          RELEASE_PUBLISH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
+          HENDY_APP_URL: ${{ vars.HENDY_APP_URL }}
         run: |
           set -euo pipefail
           curl --fail-with-body --silent --show-error \
-            -X POST "$PUBLISH_URL" \
+            -X POST "${HENDY_APP_URL%/}/api/v1/ci/publish" \
             -H "Authorization: Bearer $RELEASE_PUBLISH_TOKEN" \
             -F "appName=Hendy Store Web" \
             -F "appSlug=hendy-store-web" \
