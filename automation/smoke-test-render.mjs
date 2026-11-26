@@ -14,6 +14,11 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+const processHealth = await request("/healthz");
+assert(processHealth.ok, "Render process health returned HTTP " + processHealth.status);
+const processHealthBody = await processHealth.json();
+assert(processHealthBody.status === "healthy", "Render process is not accepting traffic.");
+
 const home = await request("/");
 assert(home.ok, "Storefront returned HTTP " + home.status);
 assert((home.headers.get("content-type") || "").includes("text/html"), "Storefront is not HTML.");
@@ -41,6 +46,12 @@ const catalogResponse = await request("/api/v1/published-releases");
 assert(catalogResponse.ok, "Release catalog returned HTTP " + catalogResponse.status);
 const catalog = await catalogResponse.json();
 assert(catalog.success === true && Array.isArray(catalog.releases), "Release catalog response is invalid.");
+
+
+const downloaderResponse = await request("/api/apps");
+assert(downloaderResponse.ok, "Downloader catalog returned HTTP " + downloaderResponse.status);
+const downloaderCatalog = await downloaderResponse.json();
+assert(downloaderCatalog.success === true && Array.isArray(downloaderCatalog.apps), "Downloader catalog response is invalid.");
 
 const admin = await request("/admin");
 assert([302, 401].includes(admin.status), "Admin route must redirect or require Basic Auth; received HTTP " + admin.status);
