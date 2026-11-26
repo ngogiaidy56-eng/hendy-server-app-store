@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import {
   resolveRuntimeConfig,
   getRuntimeSecretsStatus,
-  generateWranglerVarsBlock,
+  generateRenderEnvironmentGuide,
   DEFAULT_RUNTIME_CONFIG,
 } from './runtimeEnv.ts';
 
@@ -38,7 +38,7 @@ test('browser-side secret inspector never assumes server secrets are present', (
 });
 
 test('environment guide lists Render variables but never contains actual secret values', () => {
-  const guide = generateWranglerVarsBlock({
+  const guide = generateRenderEnvironmentGuide({
     appName: 'Custom App Test',
     environment: 'production',
     appUrl: 'https://store.example.com',

@@ -1,423 +1,175 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * Admin-only diagnostics. The API returns booleans only; secret values are
+ * never read into this component or sent back to the browser.
  */
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  Activity, Check, Copy, Database, KeyRound, RefreshCw, ShieldCheck
+} from "lucide-react";
+import {
+  RuntimeConfig,
+  resolveRuntimeConfig,
+  generateRenderEnvironmentGuide
+} from "../../utils/runtimeEnv.ts";
 
-import React, { useState, useEffect } from 'react';
-import { 
-  KeyRound, 
-  ShieldCheck, 
-  RefreshCw, 
-  Copy, 
-  Check, 
-  Globe, 
-  Terminal, 
-  Database, 
-  Cloud, 
-  CheckCircle2, 
-  AlertTriangle,
-  Lock,
-  Layers,
-  Sparkles
-} from 'lucide-react';
-import { 
-  resolveRuntimeConfig, 
-  getRuntimeSecretsStatus, 
-  generateWranglerVarsBlock,
-  RuntimeConfig, 
-  RuntimeSecretsStatus 
-} from '../../utils/runtimeEnv.ts';
+type RuntimeChecks = {
+  hasAdminUsername?: boolean;
+  hasAdminPassword?: boolean;
+  hasAdminEmail?: boolean;
+  hasReleasePublishToken?: boolean;
+  hasCertificateEncryptionKey?: boolean;
+  hasDatabaseUrl?: boolean;
+  hasPostgres?: boolean;
+  hasObjectStorage?: boolean;
+  hasRateLimiting?: boolean;
+};
+
+const CHECKS: Array<{ key: keyof RuntimeChecks; label: string; description: string }> = [
+  { key: "hasAdminUsername", label: "Admin username", description: "Thông tin đăng nhập Admin đã được khai báo" },
+  { key: "hasAdminPassword", label: "Admin password", description: "Mật khẩu ở Render Environment, không được đọc" },
+  { key: "hasAdminEmail", label: "Admin email", description: "Danh tính quản trị dùng trong nhật ký" },
+  { key: "hasDatabaseUrl", label: "DATABASE_URL", description: "Kết nối Render PostgreSQL" },
+  { key: "hasPostgres", label: "PostgreSQL adapter", description: "Adapter truy vấn metadata và giao dịch" },
+  { key: "hasObjectStorage", label: "Artifact storage", description: "Lưu byte artifact và chứng thư đã mã hóa trong PostgreSQL" },
+  { key: "hasRateLimiting", label: "Rate limiting", description: "Bộ đếm giới hạn request lưu trong PostgreSQL" },
+  { key: "hasReleasePublishToken", label: "Release publisher token", description: "Bearer token cho CI publish" },
+  { key: "hasCertificateEncryptionKey", label: "Certificate encryption key", description: "Khóa AES-GCM Base64 32 byte" }
+];
 
 export const RuntimeSecretsInspector: React.FC = () => {
   const [config, setConfig] = useState<RuntimeConfig>(resolveRuntimeConfig());
-  const [secretsStatus, setSecretsStatus] = useState<RuntimeSecretsStatus>(getRuntimeSecretsStatus());
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'vars' | 'secrets' | 'wrangler' | 'github'>('vars');
-  const [testResult, setTestResult] = useState<{ status: 'idle' | 'testing' | 'success' | 'error'; message: string }>({
-    status: 'idle',
-    message: '',
-  });
+  const [checks, setChecks] = useState<RuntimeChecks>({});
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError("");
     try {
-      const response = await fetch('/api/v1/runtime-config', {
-        method: 'GET',
-        credentials: 'same-origin',
-        headers: { Accept: 'application/json' }
+      const response = await fetch("/api/v1/runtime-config", {
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+        cache: "no-store"
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.message || data.error || 'Render runtime API trả về HTTP ' + response.status);
+      if (!response.ok) {
+        throw new Error(data.message || data.error || "Không đọc được trạng thái Render runtime (HTTP " + response.status + ").");
+      }
       if (data.config || data.data) setConfig((previous) => ({ ...previous, ...(data.config || data.data) }));
-      if (data.secrets) setSecretsStatus((previous) => ({ ...previous, ...data.secrets }));
-      setTestResult({ status: 'success', message: 'Đã đọc trạng thái runtime từ Render API. Giá trị secret không được hiển thị.' });
-    } catch (error) {
-      setTestResult({ status: 'error', message: error instanceof Error ? error.message : 'Không thể đọc runtime API. Hãy kiểm tra xác thực Admin.' });
+      setChecks(data.secrets || {});
+      setLoaded(true);
+    } catch (cause) {
+      setLoaded(false);
+      setError(cause instanceof Error ? cause.message : "Không thể kiểm tra Render runtime.");
     } finally {
-      setIsRefreshing(false);
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  const guide = generateRenderEnvironmentGuide(config);
+  const copyGuide = async () => {
+    try {
+      await navigator.clipboard.writeText(guide);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setError("Trình duyệt không cho phép sao chép. Hãy chọn và sao chép nội dung hướng dẫn.");
     }
   };
 
-  const copyToClipboard = (key: string, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 2000);
-  };
-
-  const wranglerConfigText = generateWranglerVarsBlock(config);
-
-  const githubSecretsGuide = `# Cấu hình trong Render Dashboard → Web Service → Environment
-# ADMIN_USERNAME
-# ADMIN_PASSWORD (ít nhất 20 ký tự)
-# ADMIN_EMAIL
-# RELEASE_PUBLISH_TOKEN (token ngẫu nhiên tối thiểu 32 ký tự)
-# CERTIFICATE_ENCRYPTION_KEY (Base64 của đúng 32 byte ngẫu nhiên)
-# DATABASE_URL được liên kết từ Render PostgreSQL
-# Không đặt giá trị secret vào source code hoặc biến VITE_*
-`;
+  const configured = CHECKS.filter((item) => checks[item.key] === true).length;
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Overview Ribbon */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+      <section className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-md">
-              <KeyRound className="w-5 h-5" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/15 text-violet-200">
+              <KeyRound className="h-5 w-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-slate-100 text-sm">
-                  Công Cụ Kiểm Toán & Gắn Kết Biến & Bí Mật Runtime
-                </h3>
-                <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/80 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  {secretsStatus.activeBindingsCount}/{secretsStatus.totalBindingsCount} Khóa kích hoạt
-                </span>
-              </div>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Kiểm tra cấu hình runtime, Render PostgreSQL và secrets mà không hiển thị giá trị bí mật.
-              </p>
+              <h3 className="text-sm font-bold text-slate-100">Render Runtime & Secrets</h3>
+              <p className="mt-1 text-xs text-slate-400">Chỉ hiển thị trạng thái cấu hình, không tiết lộ giá trị bí mật.</p>
             </div>
           </div>
-
-          <div className="flex items-center gap-2 self-end sm:self-auto">
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-blue-400' : ''}`} />
-              <span>Làm mới & Kiểm tra</span>
-            </button>
+          <button type="button" onClick={() => void refresh()} disabled={loading}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 disabled:opacity-50">
+            <RefreshCw className={"h-3.5 w-3.5 " + (loading ? "animate-spin" : "")} />
+            {loading ? "Đang kiểm tra…" : "Làm mới"}
+          </button>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+            <div className="text-[11px] text-slate-500">Provider</div>
+            <div className="mt-1 text-sm font-semibold text-emerald-300">{config.deploymentProvider}</div>
+          </div>
+          <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+            <div className="text-[11px] text-slate-500">Runtime</div>
+            <div className="mt-1 text-sm font-semibold text-slate-200">Node.js + Express</div>
+          </div>
+          <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+            <div className="text-[11px] text-slate-500">Database</div>
+            <div className="mt-1 text-sm font-semibold text-slate-200">Render PostgreSQL</div>
+          </div>
+          <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+            <div className="text-[11px] text-slate-500">Runtime checks</div>
+            <div className="mt-1 text-sm font-semibold text-slate-200">{loaded ? configured + "/" + CHECKS.length : "Chưa kiểm tra"}</div>
           </div>
         </div>
+      </section>
 
-        {/* Status banner */}
-        {testResult.message && (
-          <div className="mt-4 p-3 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 text-xs flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>{testResult.message}</span>
-          </div>
-        )}
-
-        {/* Fast Metrics Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 text-xs">
-          <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
-            <span className="text-slate-500 block mb-1">Môi trường (Environment)</span>
-            <span className="font-semibold text-emerald-400 uppercase tracking-wide">{config.environment}</span>
-          </div>
-          <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
-            <span className="text-slate-500 block mb-1">Tên miền Render Web Service</span>
-            <span className="font-mono text-blue-400 font-medium">{config.renderServiceDomain}</span>
-          </div>
-          <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
-            <span className="text-slate-500 block mb-1">PostgreSQL Object Storage</span>
-            <span className="font-mono text-purple-400">{config.r2BucketName}</span>
-          </div>
-          <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
-            <span className="text-slate-500 block mb-1">Ranh giới Cách ly (Air-Gap)</span>
-            <span className="font-medium text-emerald-400 flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              Không bật trên Render
-            </span>
-          </div>
+      <section className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-5 w-5 text-violet-300" />
+          <h4 className="text-sm font-semibold text-slate-100">Trạng thái Environment</h4>
         </div>
-      </div>
+        {error && <p role="alert" className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">{error}</p>}
+        {!loaded && !error && <p className="mt-4 text-xs text-slate-400">Nhấn “Làm mới” để đọc trạng thái từ Render API sau khi xác thực Admin.</p>}
+        <div className="mt-4 grid gap-2 md:grid-cols-2">
+          {CHECKS.map((item) => {
+            const ready = loaded && checks[item.key] === true;
+            return (
+              <div key={item.key} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950 px-3 py-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-slate-200">{item.label}</div>
+                  <p className="mt-1 text-[11px] text-slate-500">{item.description}</p>
+                </div>
+                <span className={"shrink-0 rounded px-2 py-1 text-[10px] font-bold " + (ready ? "bg-emerald-400/10 text-emerald-300" : "bg-slate-800 text-slate-400")}>
+                  {ready ? "Đã cấu hình" : loaded ? "Thiếu" : "Chưa rõ"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
-        <button
-          type="button"
-          onClick={() => setActiveTab('vars')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            activeTab === 'vars' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Layers className="w-3.5 h-3.5" />
-          <span>Biến Môi Trường (Runtime Vars)</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('secrets')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            activeTab === 'secrets' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Lock className="w-3.5 h-3.5" />
-          <span>Bí Mật & Chữ Ký (Secrets Binding)</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('wrangler')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            activeTab === 'wrangler' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Terminal className="w-3.5 h-3.5" />
-          <span>Render Environment</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('github')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            activeTab === 'github' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Render Environment Guide</span>
-        </button>
-      </div>
-
-      {/* Tab: Runtime Vars */}
-      {activeTab === 'vars' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col gap-4">
-          <div className="flex items-center justify-between">
+      <section className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Database className="h-5 w-5 text-sky-300" />
             <div>
-              <h4 className="font-semibold text-slate-100 text-sm">Các Biến Môi Trường Đã Gắn Kết Tại Runtime</h4>
-              <p className="text-xs text-slate-400">Các biến công khai không chứa mật khẩu, sẵn sàng phục vụ client & worker.</p>
+              <h4 className="text-sm font-semibold text-slate-100">Render Environment Guide</h4>
+              <p className="mt-1 text-xs text-slate-400">Hướng dẫn chỉ chứa tên biến, không chứa secret values.</p>
             </div>
-            <button
-              type="button"
-              onClick={() => copyToClipboard('all-vars', JSON.stringify(config, null, 2))}
-              className="flex items-center gap-1.5 px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition-colors"
-            >
-              {copiedKey === 'all-vars' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>Sao chép JSON</span>
-            </button>
           </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300 border-collapse">
-              <thead>
-                <tr className="border-b border-slate-800 text-slate-400 font-mono">
-                  <th className="py-2.5 px-3">TÊN BIẾN (KEY)</th>
-                  <th className="py-2.5 px-3">GIÁ TRỊ THỰC THI (VALUE)</th>
-                  <th className="py-2.5 px-3">NGUỒN CUNG CẤP (SOURCE)</th>
-                  <th className="py-2.5 px-3">TRẠNG THÁI</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60 font-mono">
-                <tr>
-                  <td className="py-2.5 px-3 text-blue-400 font-semibold">ENVIRONMENT</td>
-                  <td className="py-2.5 px-3 text-emerald-400">{config.environment}</td>
-                  <td className="py-2.5 px-3 text-slate-400">Render Web Service Environment</td>
-                  <td className="py-2.5 px-3"><span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">Hoạt động</span></td>
-                </tr>
-                <tr>
-                  <td className="py-2.5 px-3 text-blue-400 font-semibold">APP_NAME</td>
-                  <td className="py-2.5 px-3 text-slate-200">{config.appName}</td>
-                  <td className="py-2.5 px-3 text-slate-400">metadata.json / Vite Env</td>
-                  <td className="py-2.5 px-3"><span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">Hoạt động</span></td>
-                </tr>
-                <tr>
-                  <td className="py-2.5 px-3 text-blue-400 font-semibold">PUBLIC_BASE_URL</td>
-                  <td className="py-2.5 px-3 text-slate-200">{config.appUrl}</td>
-                  <td className="py-2.5 px-3 text-slate-400">Render service URL</td>
-                  <td className="py-2.5 px-3"><span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">Hoạt động</span></td>
-                </tr>
-                <tr>
-                  <td className="py-2.5 px-3 text-blue-400 font-semibold">CLOUDFLARE_WORKER_DOMAIN</td>
-                  <td className="py-2.5 px-3 text-blue-300 font-bold">{config.renderServiceDomain}</td>
-                  <td className="py-2.5 px-3 text-slate-400">Render public service host</td>
-                  <td className="py-2.5 px-3"><span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">Hoạt động</span></td>
-                </tr>
-                <tr>
-                  <td className="py-2.5 px-3 text-blue-400 font-semibold">CLOUDFLARE_WORKER_URL</td>
-                  <td className="py-2.5 px-3 text-slate-300">{config.renderServiceUrl}</td>
-                  <td className="py-2.5 px-3 text-slate-400">Render Node.js API Endpoint</td>
-                  <td className="py-2.5 px-3"><span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">Hoạt động</span></td>
-                </tr>
-                <tr>
-                  <td className="py-2.5 px-3 text-blue-400 font-semibold">OBJECT_STORAGE_PROVIDER</td>
-                  <td className="py-2.5 px-3 text-purple-300">{config.r2BucketName}</td>
-                  <td className="py-2.5 px-3 text-slate-400">PostgreSQL BYTEA Object Storage</td>
-                  <td className="py-2.5 px-3"><span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">Hoạt động</span></td>
-                </tr>
-                <tr>
-                  <td className="py-2.5 px-3 text-blue-400 font-semibold">RELEASE_CHANNEL</td>
-                  <td className="py-2.5 px-3 text-slate-200">{config.releaseChannel}</td>
-                  <td className="py-2.5 px-3 text-slate-400">CI/CD Pipeline Tag</td>
-                  <td className="py-2.5 px-3"><span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">Hoạt động</span></td>
-                </tr>
-                <tr>
-                  <td className="py-2.5 px-3 text-blue-400 font-semibold">VERSION</td>
-                  <td className="py-2.5 px-3 text-slate-200">{config.version}</td>
-                  <td className="py-2.5 px-3 text-slate-400">package.json Version Core</td>
-                  <td className="py-2.5 px-3"><span className="text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">Hoạt động</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <button type="button" onClick={() => void copyGuide()}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700">
+            {copied ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied ? "Đã sao chép" : "Sao chép"}
+          </button>
         </div>
-      )}
+        <pre className="mt-4 max-h-80 overflow-auto rounded-lg border border-slate-800 bg-slate-950 p-4 text-xs leading-6 text-emerald-200">{guide}</pre>
+        <p className="mt-3 text-[11px] leading-5 text-slate-500">Thay đổi giá trị secrets tại Render Dashboard → Web Service → Environment. Không nhập mật khẩu, token hoặc khóa mã hóa vào form web này.</p>
+      </section>
 
-      {/* Tab: Secrets Binding */}
-      {activeTab === 'secrets' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col gap-4">
-          <div>
-            <h4 className="font-semibold text-slate-100 text-sm">Kiểm Toán Bí Mật & Khóa Xác Thực (Secrets Binding)</h4>
-            <p className="text-xs text-slate-400">
-              Kiểm tra trạng thái secrets và runtime của Render mà không làm lộ nội dung nhạy cảm.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-slate-950 border border-slate-800 rounded-lg p-4 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-mono text-xs font-semibold text-amber-300">CLOUDFLARE_API_TOKEN</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800/60">
-                    Đã Gắn Kết
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400">
-                  Dùng để truy cập Render Dashboard và cấu hình biến môi trường cho web service.
-                </p>
-              </div>
-              <div className="mt-3 pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
-                <span className="font-mono text-slate-500">cf_••••••••••••••••••••••••••••••••</span>
-                <span className="text-emerald-400 text-[11px] flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> Hợp lệ
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-slate-950 border border-slate-800 rounded-lg p-4 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-mono text-xs font-semibold text-amber-300">CLOUDFLARE_ACCOUNT_ID</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800/60">
-                    Đã Gắn Kết
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400">
-                  Email Admin được dùng để gắn danh tính người quản trị trong các log.
-                </p>
-              </div>
-              <div className="mt-3 pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
-                <span className="font-mono text-slate-500">acc_••••••••••••••••••••••••••••</span>
-                <span className="text-emerald-400 text-[11px] flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> Hợp lệ
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-slate-950 border border-slate-800 rounded-lg p-4 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-mono text-xs font-semibold text-amber-300">RELEASE_PUBLISH_TOKEN</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800/60">
-                    Đã Gắn Kết
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400">
-                  Bearer token giới hạn quyền xuất bản artifact qua Render API.
-                </p>
-              </div>
-              <div className="mt-3 pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
-                <span className="font-mono text-slate-500">sec_••••••••••••••••••••••••••••</span>
-                <span className="text-emerald-400 text-[11px] flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> Hợp lệ
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-slate-950 border border-slate-800 rounded-lg p-4 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-mono text-xs font-semibold text-amber-300">GOOGLE_WORKSPACE_DRIVE_SCOPE</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800/60">
-                    Chỉ Bộ Nhớ RAM
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400">
-                  Quyền <code className="text-blue-400">drive.file</code> chỉ tồn tại trong phiên làm việc của Admin, không lưu vào ổ cứng hay localStorage.
-                </p>
-              </div>
-              <div className="mt-3 pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
-                <span className="font-mono text-slate-500">in-memory volatile token</span>
-                <span className="text-emerald-400 text-[11px] flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> An toàn tuyệt đối
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tab: Render Environment */}
-      {activeTab === 'wrangler' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h4 className="font-semibold text-slate-100 text-sm">Hướng dẫn biến môi trường của Render</h4>
-              <p className="text-xs text-slate-400">Đoạn hướng dẫn biến không nhạy cảm để khai báo trong Render Dashboard.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => copyToClipboard('wrangler-vars', wranglerConfigText)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition-colors"
-            >
-              {copiedKey === 'wrangler-vars' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>Sao chép [vars]</span>
-            </button>
-          </div>
-
-          <pre className="p-4 rounded-lg bg-slate-950 border border-slate-800 font-mono text-xs text-emerald-400 overflow-x-auto leading-relaxed">
-            {wranglerConfigText}
-          </pre>
-        </div>
-      )}
-
-      {/* Tab: Render Environment */}
-      {activeTab === 'github' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h4 className="font-semibold text-slate-100 text-sm">Tự Động Thiết Lập Bí Mật qua GitHub CLI</h4>
-              <p className="text-xs text-slate-400">Sử dụng GitHub CLI (gh) để tạo và cập nhật các secrets một cách an toàn.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => copyToClipboard('gh-cli', githubSecretsGuide)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition-colors"
-            >
-              {copiedKey === 'gh-cli' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>Sao chép lệnh gh CLI</span>
-            </button>
-          </div>
-
-          <pre className="p-4 rounded-lg bg-slate-950 border border-slate-800 font-mono text-xs text-amber-300 overflow-x-auto leading-relaxed">
-            {githubSecretsGuide}
-          </pre>
-        </div>
-      )}
+      <p className="flex items-center gap-2 text-[11px] text-slate-500"><Activity className="h-3.5 w-3.5" /> Dữ liệu kiểm tra được trả về từ server; giao diện không tự suy đoán secrets tồn tại.</p>
     </div>
   );
 };

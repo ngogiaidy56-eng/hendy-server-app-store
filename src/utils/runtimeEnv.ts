@@ -146,10 +146,10 @@ export function getRuntimeSecretsStatus(): RuntimeSecretsStatus {
  * Backward-compatible export name. Returns a safe Render environment guide,
  * not Wrangler configuration and never includes secret values.
  */
-export function generateWranglerVarsBlock(config: Partial<RuntimeConfig> = {}): string {
+export function generateRenderEnvironmentGuide(config: Partial<RuntimeConfig> = {}): string {
   const merged = { ...DEFAULT_RUNTIME_CONFIG, ...config };
   return [
-    '# Configure these non-secret values in Render Dashboard > Environment',
+    '# Render Dashboard > Web Service > Environment',
     'NODE_ENV=production',
     'APP_NAME=' + merged.appName,
     'ENVIRONMENT=' + merged.environment,
@@ -157,13 +157,18 @@ export function generateWranglerVarsBlock(config: Partial<RuntimeConfig> = {}): 
     'PUBLIC_BASE_URL=' + merged.appUrl,
     'PORT=10000',
     '',
-    '# Configure secrets separately in Render Environment; do not expose them to Vite:',
+    '# Set these secrets directly in Render; never place values in frontend code:',
     '# ADMIN_USERNAME',
-    '# ADMIN_PASSWORD',
+    '# ADMIN_PASSWORD (minimum 20 characters)',
     '# ADMIN_EMAIL',
-    '# RELEASE_PUBLISH_TOKEN',
-    '# CERTIFICATE_ENCRYPTION_KEY',
-    '# DATABASE_URL is linked automatically from the Render PostgreSQL resource',
+    '# RELEASE_PUBLISH_TOKEN (minimum 32 random characters)',
+    '# CERTIFICATE_ENCRYPTION_KEY (Base64 of exactly 32 random bytes)',
+    '# DATABASE_URL is linked from the Render PostgreSQL resource',
     ''
   ].join('\n');
+}
+
+/** @deprecated Use generateRenderEnvironmentGuide. */
+export function generateWranglerVarsBlock(config: Partial<RuntimeConfig> = {}): string {
+  return generateRenderEnvironmentGuide(config);
 }
