@@ -1,7 +1,7 @@
 const ALLOWED_PLATFORMS = new Set(["web", "windows", "android", "ios", "macos", "linux"]);
 const MAX_ARTIFACT_BYTES = 25 * 1024 * 1024;
 const MAX_MULTIPART_OVERHEAD_BYTES = 512 * 1024;
-const SEMVER_PATTERN = /^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$/;
+const SEMVER_PATTERN = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
 
 export function isValidSemver(value) {
   return typeof value === "string" && SEMVER_PATTERN.test(value);
