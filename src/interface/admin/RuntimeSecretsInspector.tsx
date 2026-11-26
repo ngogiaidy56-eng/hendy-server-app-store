@@ -21,6 +21,8 @@ type RuntimeChecks = {
   hasAdminEmail?: boolean;
   hasReleasePublishToken?: boolean;
   hasCertificateEncryptionKey?: boolean;
+  hasTelegramBotToken?: boolean;
+  hasTelegramWebhookSecret?: boolean;
   hasDatabaseUrl?: boolean;
   hasPostgres?: boolean;
   hasObjectStorage?: boolean;
@@ -36,7 +38,9 @@ const CHECKS: Array<{ key: keyof RuntimeChecks; label: string; description: stri
   { key: "hasObjectStorage", label: "Artifact storage", description: "Lưu byte artifact và chứng thư đã mã hóa trong PostgreSQL" },
   { key: "hasRateLimiting", label: "Rate limiting", description: "Bộ đếm giới hạn request lưu trong PostgreSQL" },
   { key: "hasReleasePublishToken", label: "Release publisher token", description: "Bearer token cho CI publish" },
-  { key: "hasCertificateEncryptionKey", label: "Certificate encryption key", description: "Khóa AES-GCM Base64 32 byte" }
+  { key: "hasCertificateEncryptionKey", label: "Certificate encryption key", description: "Khóa AES-GCM Base64 32 byte" },
+  { key: "hasTelegramBotToken", label: "Telegram Bot token", description: "Tùy chọn: token bot được giữ ở server" },
+  { key: "hasTelegramWebhookSecret", label: "Telegram webhook secret", description: "Tùy chọn: secret xác thực webhook" }
 ];
 
 export const RuntimeSecretsInspector: React.FC = () => {

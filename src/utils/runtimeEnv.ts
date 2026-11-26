@@ -64,7 +64,7 @@ export const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = {
   cloudflarePagesUrl: LOCAL_URL,
   cloudflareWorkerDomain: 'localhost:10000',
   r2BucketName: 'Render PostgreSQL object store',
-  version: '3.3.0',
+  version: '3.4.0',
   isAirGapped: false,
   apiBaseUrl: '/api',
 };

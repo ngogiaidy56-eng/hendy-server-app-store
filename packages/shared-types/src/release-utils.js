@@ -63,15 +63,18 @@ export async function publishArtifact(context, mode = "admin") {
   let form;
   try { form = await context.request.formData(); }
   catch { return json({ success: false, error: "invalid_multipart" }, 400); }
-  const file = form.get("file");
+  const file = form.get("file") || form.get("softwareFile");
   if (!(file instanceof File)) return json({ success: false, error: "artifact_required", message: "Thiếu trường file." }, 400);
   if (file.size < 1 || file.size > MAX_ARTIFACT_BYTES) return json({ success: false, error: "artifact_size_limit", message: "Artifact phải lớn hơn 0 byte và không vượt quá 25 MB." }, 413);
 
-  const appName = String(form.get("appName") || "").trim().slice(0, 120);
+  const appName = String(form.get("appName") || form.get("name") || "").trim().slice(0, 120);
   const appSlug = safeSlug(String(form.get("appSlug") || appName));
   const version = String(form.get("version") || "").trim();
-  const platform = String(form.get("platform") || "web").trim().toLowerCase();
-  const releaseNotes = String(form.get("releaseNotes") || "").trim().slice(0, 2000);
+  const rawPlatform = String(form.get("platform") || form.get("category") || "web").trim().toLowerCase();
+  const platform = ({ tools: "web", mac: "macos", iphone: "ios", ipad: "ios" })[rawPlatform] || rawPlatform;
+  const releaseNotes = String(form.get("releaseNotes") || form.get("changelog") || "").trim().slice(0, 2000);
+  const channelValue = String(form.get("channel") || "stable").trim().toLowerCase();
+  const channel = ["stable", "beta", "nightly"].includes(channelValue) ? channelValue : "stable";
   if (!appName || !appSlug) return json({ success: false, error: "invalid_app" }, 400);
   if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z.-]+)?$/.test(version)) return json({ success: false, error: "invalid_version", message: "Phiên bản phải là SemVer, ví dụ 1.2.3." }, 400);
   if (!ALLOWED_PLATFORMS.has(platform)) return json({ success: false, error: "invalid_platform" }, 400);
@@ -97,8 +100,8 @@ export async function publishArtifact(context, mode = "admin") {
     await env.DB.batch([
       env.DB.prepare("INSERT INTO apps (app_slug, app_name, created_at) VALUES (?, ?, ?) ON CONFLICT(app_slug) DO UPDATE SET app_name = excluded.app_name")
         .bind(appSlug, appName, publishedAt),
-      env.DB.prepare("INSERT INTO releases (id, app_slug, app_name, version, platform, file_name, r2_key, size_bytes, sha256, release_notes, status, created_by, published_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?)")
-        .bind(id, appSlug, appName, version, platform, fileName, key, file.size, sha256, releaseNotes, actorEmail, publishedAt)
+      env.DB.prepare("INSERT INTO releases (id, app_slug, app_name, version, platform, file_name, r2_key, size_bytes, sha256, release_notes, channel, status, created_by, published_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?)")
+        .bind(id, appSlug, appName, version, platform, fileName, key, file.size, sha256, releaseNotes, channel, actorEmail, publishedAt)
     ]);
   } catch (error) {
     try { await env.RELEASES.delete(key); } catch {}
@@ -108,8 +111,8 @@ export async function publishArtifact(context, mode = "admin") {
   const url = new URL("/api/v1/published/download?key=" + encodeURIComponent(key), context.request.url).toString();
   return json({
     success: true,
-    message: "Artifact đã được lưu vào Cloudflare R2 và metadata được ghi vào D1.",
+    message: "Artifact đã được lưu vào kho PostgreSQL và metadata đã được ghi.",
     id, key, appName, appSlug, version, platform, fileName,
-    sizeBytes: file.size, sha256, publishedAt, releaseNotes, downloadUrl: url
+    sizeBytes: file.size, sha256, publishedAt, releaseNotes, channel, downloadUrl: url
   }, 201);
 }

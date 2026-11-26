@@ -13,6 +13,8 @@ export async function onRequestGet(context) {
       ADMIN_EMAIL: Boolean(env.ADMIN_EMAIL),
       RELEASE_PUBLISH_TOKEN: Boolean(env.RELEASE_PUBLISH_TOKEN),
       CERTIFICATE_ENCRYPTION_KEY: Boolean(env.CERTIFICATE_ENCRYPTION_KEY),
+      BOT_TOKEN: Boolean(env.BOT_TOKEN),
+      TELEGRAM_WEBHOOK_SECRET: Boolean(env.TELEGRAM_WEBHOOK_SECRET),
       DATABASE_URL: Boolean(env.DATABASE_URL),
       DB: Boolean(env.DB),
       RELEASES: Boolean(env.RELEASES),

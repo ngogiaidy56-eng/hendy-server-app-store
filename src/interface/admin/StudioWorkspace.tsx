@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import JSZip from 'jszip';
 import { AutomationSecretsForm } from '../../../apps/web-admin/src/components/AutomationSecretsForm.tsx';
 import { CertUploadSecure } from '../../../apps/web-admin/src/components/CertUploadSecure.tsx';
+import { TelegramBotPanel } from '../../../apps/web-admin/src/components/TelegramBotPanel.tsx';
 import {
   Activity, ArrowDownToLine, ArrowLeft, ArrowRight, Boxes, Check, CheckCircle2,
   ChevronRight, CircleAlert, CloudUpload, Code2, Cpu, FileArchive, FileCode2,
@@ -496,6 +497,7 @@ export default function StudioWorkspace({ onReturnToStore }: { onReturnToStore: 
                 </div>
                 <div className="rounded-2xl border border-white/[.08] bg-[#11131d] p-5 sm:p-6"><div className="flex items-center gap-3"><Github size={19} className="text-slate-300"/><div><h2 className="font-extrabold">Source và CI/CD</h2><p className="mt-1 text-xs text-slate-500">Truy cập mã nguồn và quy trình build/release.</p></div></div><div className="mt-4 flex flex-wrap gap-2"><a href="https://github.com/ngogiaidy56-eng/hendy-server-app-store" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-white/[.1] px-4 py-2.5 text-xs font-bold hover:bg-white/[.05]"><Github size={14}/> Repository <ExternalLink size={12}/></a><a href="https://dashboard.render.com/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-white/[.1] px-4 py-2.5 text-xs font-bold hover:bg-white/[.05]"><GitBranch size={14}/> GitHub Actions <ExternalLink size={12}/></a></div></div>
                 <AutomationSecretsForm />
+                <TelegramBotPanel />
                 <CertUploadSecure />
               </section>
             )}

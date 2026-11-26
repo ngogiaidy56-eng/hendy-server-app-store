@@ -1,0 +1,27 @@
+name: Migrate Neon database
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: Apply idempotent PostgreSQL migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Run database migrations
+        env:
+          DATABASE_URL: \${{ secrets.DATABASE_URL }}
+          PGPOOL_MAX: "2"
+        run: npm run db:migrate

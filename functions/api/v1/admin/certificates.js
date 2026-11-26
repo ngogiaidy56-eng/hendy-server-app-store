@@ -42,7 +42,7 @@ export async function onRequestPost(context) {
   let keyBytes;
   try { keyBytes = base64ToBytes(String(env.CERTIFICATE_ENCRYPTION_KEY || "")); }
   catch { keyBytes = new Uint8Array(); }
-  if (keyBytes.byteLength !== 32) return json({ success: false, error: "certificate_encryption_not_configured", message: "Cần cấu hình CERTIFICATE_ENCRYPTION_KEY là key Base64 32 byte trong Pages secrets." }, 503);
+  if (keyBytes.byteLength !== 32) return json({ success: false, error: "certificate_encryption_not_configured", message: "Cần cấu hình CERTIFICATE_ENCRYPTION_KEY là key Base64 32 byte trong Render Environment." }, 503);
 
   const contentLengthHeader = context.request.headers.get("content-length");
   if (contentLengthHeader !== null) {

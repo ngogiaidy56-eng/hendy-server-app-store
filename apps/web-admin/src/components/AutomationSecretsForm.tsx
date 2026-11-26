@@ -14,6 +14,8 @@ const REQUIRED_BINDINGS = [
   ["ADMIN_EMAIL", "Email quản trị"],
   ["RELEASE_PUBLISH_TOKEN", "Release publisher token"],
   ["CERTIFICATE_ENCRYPTION_KEY", "Certificate encryption key"],
+  ["BOT_TOKEN", "Telegram Bot token (optional)"],
+  ["TELEGRAM_WEBHOOK_SECRET", "Telegram webhook secret (optional)"],
   ["DATABASE_URL", "Render PostgreSQL connection"],
   ["DB", "PostgreSQL metadata adapter"],
   ["RELEASES", "PostgreSQL artifact storage"],

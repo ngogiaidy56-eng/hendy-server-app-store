@@ -193,10 +193,11 @@ export async function createRenderPlatform(env = process.env) {
   const pool = new Pool({
     connectionString,
     ssl: env.PGSSLMODE === "disable" ? false : { rejectUnauthorized: false },
-    max: Number(env.PGPOOL_MAX || 10),
+    max: Number(env.PGPOOL_MAX || 3),
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
-    application_name: "hendy-server-app-store"
+    application_name: "hendy-server-app-store",
+    allowExitOnIdle: true
   });
   await pool.query("SELECT 1");
   return {

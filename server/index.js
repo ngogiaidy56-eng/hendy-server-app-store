@@ -4,6 +4,8 @@ import { existsSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRenderPlatform } from "./platform.js";
+import { registerDownloaderRoutes } from "./downloader-api.js";
+import { registerTelegramRoutes } from "./telegram-bot.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const FUNCTIONS_DIR = join(ROOT, "functions");
@@ -23,7 +25,8 @@ function isAdminPath(pathname) {
     pathname.startsWith("/studio/") || pathname === "/api/auth" ||
     pathname === "/api/v1/runtime-config" || pathname === "/api/sync-logs" ||
     pathname.startsWith("/api/sync-logs/") ||
-    pathname === "/api/v1/admin" || pathname.startsWith("/api/v1/admin/");
+    pathname === "/api/v1/admin" || pathname.startsWith("/api/v1/admin/") ||
+    pathname === "/api/admin" || pathname.startsWith("/api/admin/");
 }
 function verifyAdminAuthorization(header, env) {
   const username = String(env.ADMIN_USERNAME || "");
@@ -110,7 +113,8 @@ function jsonError(res, status, error, message) {
 async function createApp(platform) {
   const app = express();
   app.disable("x-powered-by");
-  // Render places a trusted reverse proxy in front of the service.\n  app.set("trust proxy", 1);
+  // Render places a trusted reverse proxy in front of the service.
+  app.set("trust proxy", 1);
 
   const env = {
     ...process.env,
@@ -126,7 +130,8 @@ async function createApp(platform) {
   app.use((req, res, next) => {
     req.requestId = randomUUID();
     res.setHeader("X-Request-Id", req.requestId);
-    res.setHeader("X-Content-Type-Options", "nosniff");\n    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
     res.setHeader("X-Frame-Options", isAdminPath(req.path) ? "DENY" : "SAMEORIGIN");
     res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
@@ -162,8 +167,11 @@ async function createApp(platform) {
     next();
   });
 
+  app.get("/healthz", (_req, res) => res.status(200).json({ status: "healthy", service: "hendy-server-app-store", runtime: "render-node-express", timestamp: new Date().toISOString() }));
+
   app.use(async (req, res, next) => {
     if (!req.path.startsWith("/api/")) return next();
+    if (typeof env.RATE_LIMITS?.consume !== "function") return next();
     try {
       const ip = String(req.ip || req.socket.remoteAddress || "unknown").slice(0, 100);
       const minute = Math.floor(Date.now() / 60000);
@@ -175,6 +183,9 @@ async function createApp(platform) {
       jsonError(res, 503, "rate_limiter_unavailable", "Bộ giới hạn truy cập tạm thời không hoạt động.");
     }
   });
+
+  registerDownloaderRoutes(app, env, { toWebRequest, sendWebResponse, maxBodyBytes: MAX_REQUEST_BODY_BYTES });
+  registerTelegramRoutes(app, express, env, jsonError);
 
   app.use(async (req, res, next) => {
     if (!req.path.startsWith("/api/")) return next();
@@ -224,11 +235,18 @@ async function createApp(platform) {
 }
 
 async function main() {
-  const platform = await createRenderPlatform(process.env);
+  let platform;
+  try {
+    platform = await createRenderPlatform(process.env);
+  } catch (error) {
+    if (process.env.ALLOW_DEGRADED_START !== "true") throw error;
+    console.error("Starting in degraded mode; configure DATABASE_URL to enable API storage:", error instanceof Error ? error.message : "database unavailable");
+    platform = { DB: null, RELEASES: null, RATE_LIMITS: null, async close() {} };
+  }
   const app = await createApp(platform);
   const server = app.listen(PORT, "0.0.0.0", () => {
     console.log("Hendy App Store listening on 0.0.0.0:" + PORT);
-    console.log("Runtime: Render Node.js + Express; database and object storage: Render PostgreSQL.");
+    console.log("Runtime: Render Node.js + Express; database: external PostgreSQL; artifact store: PostgreSQL BYTEA.");
   });
   const shutdown = (signal) => {
     console.log("Received " + signal + "; shutting down gracefully.");

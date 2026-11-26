@@ -8,6 +8,8 @@ export async function onRequestGet(context) {
     hasAdminEmail: Boolean(env.ADMIN_EMAIL),
     hasReleasePublishToken: Boolean(env.RELEASE_PUBLISH_TOKEN),
     hasCertificateEncryptionKey: Boolean(env.CERTIFICATE_ENCRYPTION_KEY),
+    hasTelegramBotToken: Boolean(env.BOT_TOKEN),
+    hasTelegramWebhookSecret: Boolean(env.TELEGRAM_WEBHOOK_SECRET),
     hasDatabaseUrl: Boolean(env.DATABASE_URL),
     hasPostgres: Boolean(env.DB),
     hasObjectStorage: Boolean(env.RELEASES),
