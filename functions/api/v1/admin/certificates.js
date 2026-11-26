@@ -44,6 +44,14 @@ export async function onRequestPost(context) {
   catch { keyBytes = new Uint8Array(); }
   if (keyBytes.byteLength !== 32) return json({ success: false, error: "certificate_encryption_not_configured", message: "Cần cấu hình CERTIFICATE_ENCRYPTION_KEY là key Base64 32 byte trong Pages secrets." }, 503);
 
+  const contentLengthHeader = context.request.headers.get("content-length");
+  if (contentLengthHeader !== null) {
+    const requestBytes = Number(contentLengthHeader);
+    if (!Number.isSafeInteger(requestBytes) || requestBytes < 1 || requestBytes > 20 * 1024 * 1024 + 256 * 1024) {
+      return json({ success: false, error: "certificate_request_size_limit" }, 413);
+    }
+  }
+
   let form;
   try { form = await context.request.formData(); }
   catch { return json({ success: false, error: "invalid_multipart" }, 400); }

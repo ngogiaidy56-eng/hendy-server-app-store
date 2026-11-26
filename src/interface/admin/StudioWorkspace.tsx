@@ -116,7 +116,7 @@ export default function StudioWorkspace({ onReturnToStore }: { onReturnToStore: 
 
   const saveStoreConfig = async () => {
     setBusy(true);
-    setProgressMessage('Đang lưu cấu hình giao diện vào R2…');
+    setProgressMessage('Đang lưu cấu hình giao diện vào D1…');
     try {
       const response = await fetch('/api/v1/admin/store-config', {
         method: 'POST',
@@ -128,7 +128,7 @@ export default function StudioWorkspace({ onReturnToStore }: { onReturnToStore: 
       if (!response.ok) throw new Error(body.message || body.error || ('Lưu giao diện thất bại: HTTP ' + response.status));
       setStoreConfig({ ...defaultStoreConfig, ...body.config });
       setStoreConfigDirty(false);
-      setNotice({ type: 'success', text: 'Đã lưu nội dung cửa hàng vào R2. Tải lại cửa hàng để kiểm tra.' });
+      setNotice({ type: 'success', text: 'Đã lưu nội dung cửa hàng vào D1. Tải lại cửa hàng để kiểm tra.' });
     } catch (error) {
       setNotice({ type: 'error', text: error instanceof Error ? error.message : 'Không lưu được cấu hình cửa hàng.' });
     } finally {
@@ -472,7 +472,7 @@ export default function StudioWorkspace({ onReturnToStore }: { onReturnToStore: 
 
             {view === 'storefront' && (
               <section className="max-w-5xl space-y-6">
-                <div><div className="text-xs font-bold uppercase tracking-[.18em] text-violet-300">Storefront control</div><h1 className="mt-2 text-3xl font-black tracking-tight">Điều khiển giao diện người dùng</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Cập nhật thương hiệu, banner, nội dung trang chủ và liên kết cửa hàng. Cấu hình được lưu vào R2 và đọc lại qua API công khai.</p></div>
+                <div><div className="text-xs font-bold uppercase tracking-[.18em] text-violet-300">Storefront control</div><h1 className="mt-2 text-3xl font-black tracking-tight">Điều khiển giao diện người dùng</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Cập nhật thương hiệu, banner, nội dung trang chủ và liên kết cửa hàng. Cấu hình được lưu vào D1 và đọc lại qua API công khai.</p></div>
                 <div className="rounded-2xl border border-white/[.08] bg-[#11131d] p-5 sm:p-7"><div className="grid gap-4 sm:grid-cols-2">
                   <label className="block"><span className="mb-2 block text-xs font-semibold text-slate-400">Tên cửa hàng</span><input value={storeConfig.brandName} onChange={(event) => { setStoreConfig((old) => ({ ...old, brandName: event.target.value })); setStoreConfigDirty(true); }} maxLength={70} className="w-full rounded-xl border border-white/[.1] bg-[#0b0c12] px-3.5 py-3 text-sm outline-none focus:border-violet-400/50"/></label>
                   <label className="block"><span className="mb-2 block text-xs font-semibold text-slate-400">Thông báo đầu trang</span><input value={storeConfig.announcement} onChange={(event) => { setStoreConfig((old) => ({ ...old, announcement: event.target.value })); setStoreConfigDirty(true); }} maxLength={240} className="w-full rounded-xl border border-white/[.1] bg-[#0b0c12] px-3.5 py-3 text-sm outline-none focus:border-violet-400/50" placeholder="Thông báo tùy chọn"/></label>
@@ -482,7 +482,7 @@ export default function StudioWorkspace({ onReturnToStore }: { onReturnToStore: 
                   <label className="block"><span className="mb-2 block text-xs font-semibold text-slate-400">Liên kết hỗ trợ HTTPS</span><input value={storeConfig.supportUrl} onChange={(event) => { setStoreConfig((old) => ({ ...old, supportUrl: event.target.value })); setStoreConfigDirty(true); }} type="url" className="w-full rounded-xl border border-white/[.1] bg-[#0b0c12] px-3.5 py-3 text-sm outline-none focus:border-violet-400/50" placeholder="https://..."/></label>
                   <label className="block sm:col-span-2"><span className="mb-2 block text-xs font-semibold text-slate-400">Mô tả trang chủ</span><textarea rows={4} value={storeConfig.heroDescription} onChange={(event) => { setStoreConfig((old) => ({ ...old, heroDescription: event.target.value })); setStoreConfigDirty(true); }} maxLength={500} className="w-full resize-y rounded-xl border border-white/[.1] bg-[#0b0c12] px-3.5 py-3 text-sm leading-6 outline-none focus:border-violet-400/50"/></label>
                   <label className="block sm:col-span-2"><span className="mb-2 block text-xs font-semibold text-slate-400">Repository công khai</span><input value={storeConfig.repositoryUrl} onChange={(event) => { setStoreConfig((old) => ({ ...old, repositoryUrl: event.target.value })); setStoreConfigDirty(true); }} type="url" className="w-full rounded-xl border border-white/[.1] bg-[#0b0c12] px-3.5 py-3 text-sm outline-none focus:border-violet-400/50"/></label>
-                </div><div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/[.07] pt-5"><span className="text-xs text-slate-500">{storeConfigDirty ? 'Có thay đổi chưa lưu' : 'Đang dùng nội dung đã tải từ API'}</span><div className="flex gap-2"><button onClick={() => void loadStoreConfig()} className="rounded-xl border border-white/[.1] px-4 py-2.5 text-xs font-bold text-slate-300 hover:bg-white/[.04]">Tải lại</button><button onClick={() => void saveStoreConfig()} disabled={busy || !storeConfigDirty} className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-4 py-2.5 text-xs font-extrabold text-white hover:bg-violet-400 disabled:opacity-40"><CloudUpload size={14}/> Lưu lên R2</button></div></div></div>
+                </div><div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/[.07] pt-5"><span className="text-xs text-slate-500">{storeConfigDirty ? 'Có thay đổi chưa lưu' : 'Đang dùng nội dung đã tải từ API'}</span><div className="flex gap-2"><button onClick={() => void loadStoreConfig()} className="rounded-xl border border-white/[.1] px-4 py-2.5 text-xs font-bold text-slate-300 hover:bg-white/[.04]">Tải lại</button><button onClick={() => void saveStoreConfig()} disabled={busy || !storeConfigDirty} className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-4 py-2.5 text-xs font-extrabold text-white hover:bg-violet-400 disabled:opacity-40"><CloudUpload size={14}/> Lưu vào D1</button></div></div></div>
                 <div className="rounded-2xl border border-sky-400/15 bg-sky-400/[.035] p-5"><div className="flex items-start gap-3"><ShieldCheck size={19} className="mt-0.5 shrink-0 text-sky-200"/><div><h2 className="font-extrabold text-sky-100">Dữ liệu cửa hàng</h2><p className="mt-2 text-sm leading-6 text-slate-400">Danh mục, phiên bản, link tải và checksum tự lấy từ artifact đã xuất bản. Màn hình này quản lý nội dung và thương hiệu; không chèn dữ liệu phát hành giả.</p></div></div></div>
               </section>
             )}

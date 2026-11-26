@@ -1,5 +1,6 @@
 const ALLOWED_PLATFORMS = new Set(["web", "windows", "android", "ios", "macos", "linux"]);
 const MAX_ARTIFACT_BYTES = 25 * 1024 * 1024;
+const MAX_MULTIPART_OVERHEAD_BYTES = 512 * 1024;
 
 function json(data, status = 200) {
   return Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
@@ -46,6 +47,14 @@ export async function publishArtifact(context, mode = "admin") {
   }
   if (!env.DB || !env.RELEASES?.put) return json({ success: false, error: "release_storage_not_configured" }, 503);
 
+  const contentLengthHeader = context.request.headers.get("content-length");
+  if (contentLengthHeader !== null) {
+    const requestBytes = Number(contentLengthHeader);
+    if (!Number.isSafeInteger(requestBytes) || requestBytes < 1 || requestBytes > MAX_ARTIFACT_BYTES + MAX_MULTIPART_OVERHEAD_BYTES) {
+      return json({ success: false, error: "request_size_limit", message: "Request vượt giới hạn upload cho phép." }, 413);
+    }
+  }
+
   let form;
   try { form = await context.request.formData(); }
   catch { return json({ success: false, error: "invalid_multipart" }, 400); }
@@ -78,10 +87,14 @@ export async function publishArtifact(context, mode = "admin") {
       httpMetadata: { contentType },
       customMetadata: { appName, appSlug, version, platform, fileName, sha256, publishedAt, releaseNotes, uploadedBy: actorEmail }
     });
-    await env.DB.prepare("INSERT INTO apps (app_slug, app_name, created_at) VALUES (?, ?, ?) ON CONFLICT(app_slug) DO UPDATE SET app_name = excluded.app_name")
-      .bind(appSlug, appName, publishedAt).run();
-    await env.DB.prepare("INSERT INTO releases (id, app_slug, app_name, version, platform, file_name, r2_key, size_bytes, sha256, release_notes, status, created_by, published_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?)")
-      .bind(id, appSlug, appName, version, platform, fileName, key, file.size, sha256, releaseNotes, actorEmail, publishedAt).run();
+    // D1 batch executes the metadata writes atomically. If either statement fails,
+    // the catch block removes the already-uploaded R2 object.
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO apps (app_slug, app_name, created_at) VALUES (?, ?, ?) ON CONFLICT(app_slug) DO UPDATE SET app_name = excluded.app_name")
+        .bind(appSlug, appName, publishedAt),
+      env.DB.prepare("INSERT INTO releases (id, app_slug, app_name, version, platform, file_name, r2_key, size_bytes, sha256, release_notes, status, created_by, published_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?)")
+        .bind(id, appSlug, appName, version, platform, fileName, key, file.size, sha256, releaseNotes, actorEmail, publishedAt)
+    ]);
   } catch (error) {
     try { await env.RELEASES.delete(key); } catch {}
     console.error("publish artifact failed", error instanceof Error ? error.message : "unknown error");

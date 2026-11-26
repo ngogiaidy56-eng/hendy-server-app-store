@@ -26,16 +26,22 @@ export async function onRequestPost(context) {
   if (!DB) return errorResponse("d1_not_configured", 503);
   let body;
   try {
-    if (Number(context.request.headers.get("content-length") || 0) > 32768) return errorResponse("payload_too_large", 413);
+    const contentLength = context.request.headers.get("content-length");
+    if (contentLength !== null && (!/^\\d+$/.test(contentLength) || Number(contentLength) > 16384)) {
+      return errorResponse("payload_too_large", 413);
+    }
     body = await context.request.json();
   } catch { return errorResponse("invalid_json", 400); }
   const status = ["started", "success", "failed", "warning"].includes(body?.status) ? body.status : "warning";
   const message = typeof body?.message === "string" ? body.message.trim().slice(0, 500) : "Cập nhật trạng thái đồng bộ.";
+  const details = body?.details && typeof body.details === "object" && !Array.isArray(body.details) ? body.details : {};
+  const detailsJson = JSON.stringify(details);
+  if (detailsJson.length > 8192) return errorResponse("details_too_large", 413);
   const id = crypto.randomUUID();
   const createdAt = new Date().toISOString();
   try {
     await DB.prepare("INSERT INTO sync_logs (id, status, message, actor_email, details_json, created_at) VALUES (?, ?, ?, ?, ?, ?)")
-      .bind(id, status, message, identity.email, JSON.stringify(body?.details || {}), createdAt).run();
+      .bind(id, status, message, identity.email, detailsJson, createdAt).run();
     const record = { id, status, message, actorEmail: identity.email, createdAt };
     if (RATE_LIMITS) await RATE_LIMITS.put("sync:status", JSON.stringify(record), { expirationTtl: 604800 });
     return Response.json({ success: true, log: record }, { status: 201, headers: { "Cache-Control": "no-store" } });
