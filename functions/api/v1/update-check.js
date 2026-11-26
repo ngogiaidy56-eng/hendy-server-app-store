@@ -1,4 +1,4 @@
-const SEMVER_PATTERN = /^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$/;
+const SEMVER_PATTERN = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
 const ALLOWED_PLATFORMS = new Set(["web", "windows", "android", "ios", "macos", "linux"]);
 
 function parseSemver(input) {
@@ -25,7 +25,7 @@ function compareSemver(left, right) {
     if (a === undefined) return -1;
     if (b === undefined) return 1;
     if (a === b) continue;
-    const aNumeric = /^\\d+$/.test(a), bNumeric = /^\\d+$/.test(b);
+    const aNumeric = /^[0-9]+$/.test(a), bNumeric = /^[0-9]+$/.test(b);
     if (aNumeric && bNumeric) return BigInt(a) > BigInt(b) ? 1 : -1;
     if (aNumeric !== bNumeric) return aNumeric ? -1 : 1;
     return a > b ? 1 : -1;
